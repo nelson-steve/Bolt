@@ -19,8 +19,8 @@ fn run_file(path: &str) -> Result<(), String> {
 }
 
 fn run(contents: &str) -> Result<(), String> {
-    let scanner = Scanner::new(contents);
-    let tokens = scanner.scanTokens()?;
+    let mut scanner = Scanner::new(contents);
+    let tokens = scanner.scan_tokens()?;
 
     for token in tokens {
         println!("{:?}", token);
