@@ -11,6 +11,8 @@ fn take_input(){
         std::io::stdout().flush().unwrap();
         let mut line =  String::new();
         let _input = std::io::stdin().read_line(&mut line).unwrap();
+        print!("{} + 2",line);
+        print!("{}",line);
 
         let mut l1 = Lexer::new(line.clone());
         loop {
@@ -139,10 +141,9 @@ impl Lexer {
             return SyntaxToken { kind: (SyntaxKind::EndOfFileToken), position: self.position, text: "\0".to_string(), value:1 };
         }
         else if self.Current().is_whitespace() {
-            // char::is_whitespace(self.Current()) 
             let start = self.position;
 
-            while char::is_whitespace(self.Current()) {
+            while self.Current().is_whitespace() {
                 self.Next();
             }
 
