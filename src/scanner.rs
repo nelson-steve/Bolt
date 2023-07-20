@@ -29,7 +29,8 @@ impl Scanner {
                 Err(msg) => errors.push(msg),
             }
         }
-        self.tokens.push(Token {
+        self.tokens.push(
+            Token {
             token_type: TokenType::Eof,
             lexeme: "".to_string(),
             literal: None,
@@ -66,7 +67,73 @@ impl Scanner {
             '+' => Ok(self.add_token(TokenType::Plus)),
             ';' => Ok(self.add_token(TokenType::Semicolon)),
             '*' => Ok(self.add_token(TokenType::Star)),
+            '!' => Ok({
+                let token = if self.char_match('='){
+                    TokenType::BangEqual
+                } else {
+                    TokenType::Bang
+                };
+                self.add_token(token);
+            }),
+            '=' => Ok({
+                let token = if self.char_match('='){
+                    TokenType::EqualEqual
+                } else {
+                    TokenType::Equal
+                };
+                self.add_token(token);
+            }),
+            '<' => Ok({
+                let token = if self.char_match('='){
+                    TokenType::LessEqual
+                } else {
+                    TokenType::Equal
+                };
+                self.add_token(token);
+            }),
+            '>' => Ok({
+                let token = if self.char_match('='){
+                    TokenType::GreaterEqual
+                } else {
+                    TokenType::Equal
+                };
+                self.add_token(token);
+            }),
+            '/' => Ok({
+                if self.char_match('/'){
+                    loop{
+                        if self.peek() == '\n' || self.is_at_end() {
+                            break;
+                        }
+                        self.advance();
+                    }
+                } else {
+                    self.add_token(TokenType::Slash)
+                }
+            }),
+            ' ' | '\r' | '\t' => Ok({}),
+            '\n' => Ok(self.line += 1),
+            
             _ =>return Err(format!("Unrecognized char: {}", c)),
+        }
+    }
+
+    fn peek(self: &mut Self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+        self.source.as_bytes()[self.current] as char
+    }
+
+    fn char_match(self: &mut Self, ch: char) -> bool {
+        if self.is_at_end(){
+            return false;
+        }
+        if self.source.as_bytes()[self.current] as char != ch {
+            return false;
+        } else {
+            self.current +=1;
+            return true;
         }
     }
 
@@ -77,11 +144,11 @@ impl Scanner {
         c as char
     }
 
-    fn add_token(self: &mut Self, token_type: TokenType){
+    fn add_token(self: &mut Self, token_type: TokenType) {
         self.add_token_lit(token_type, None);
     }
 
-    fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>){
+    fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>) {
         let mut text = "".to_string();
         let bytes = self.source.as_bytes();
         for i in self.start..self.current{
@@ -91,16 +158,17 @@ impl Scanner {
         //let text:String = self.source.as_bytes()[self.start..self.current].iter().collect();
 
         self.tokens.push(Token {
-            token_type: TokenType::Eof,
-            lexeme: "".to_string(),
+            token_type: token_type,
+            lexeme: text.to_string(),
             literal: None,
             lineNumber: self.line,
         });
 
+        // return token_type;
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single-character tokens
     LeftParen,
@@ -194,5 +262,45 @@ impl Token {
 
     pub fn to_string(self: &Self) -> String {
         format!("{} {} {:?}", self.token_type, self.lexeme, self.literal)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handle_one_char_tokens(){
+        let source = "(( )) {}";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens();
+
+        println!("{:?}", scanner.tokens);
+        
+        assert_eq!(scanner.tokens.len(), 7);
+        assert_eq!(scanner.tokens[0].token_type, TokenType::LeftParen);
+        assert_eq!(scanner.tokens[1].token_type, TokenType::LeftParen);
+        assert_eq!(scanner.tokens[2].token_type, TokenType::RightParen);
+        assert_eq!(scanner.tokens[3].token_type, TokenType::RightParen);
+        assert_eq!(scanner.tokens[4].token_type, TokenType::LeftBrace);
+        assert_eq!(scanner.tokens[5].token_type, TokenType::RightBrace);
+        assert_eq!(scanner.tokens[6].token_type, TokenType::Eof);
+    }
+
+    #[test]
+    fn handle_two_char_tokens(){
+        let source = "! != == >=";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens();
+
+        println!("{:?}", scanner.tokens);
+        
+        assert_eq!(scanner.tokens.len(), 5);
+        assert_eq!(scanner.tokens[0].token_type, TokenType::Bang);
+        assert_eq!(scanner.tokens[1].token_type, TokenType::BangEqual);
+        assert_eq!(scanner.tokens[2].token_type, TokenType::EqualEqual);
+        assert_eq!(scanner.tokens[3].token_type, TokenType::GreaterEqual);
+        assert_eq!(scanner.tokens[4].token_type, TokenType::Eof);
     }
 }
