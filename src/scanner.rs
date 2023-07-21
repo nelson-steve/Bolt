@@ -1,11 +1,15 @@
-use std::fmt;
+use std::fmt::{self, format};
+
+fn is_digit(ch: char) -> bool {
+    ch as u8 >= '0' as u8 && ch as u8 <= '9' as u8
+}
 
 #[derive(Debug)]
 pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
     start: usize,
-    current: usize,
+    current: usize, 
     line: usize,
 }
 
@@ -115,8 +119,43 @@ impl Scanner {
             '\n' => Ok(self.line += 1),
             '"' => self.string(),
             
-            _ =>return Err(format!("Unrecognized char: {}", c)),
+            c => {
+                if is_digit(c) {
+                    self.number();
+                }
+                return Err(format!("Unrecognized char: {}", c));
+            }
         }
+    }
+
+    fn number(self: &mut Self) -> Result<(), String> {
+        while is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == '.' && is_digit(self.peek_next()) {
+            self.advance();
+
+            while is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+        let substring = &self.source[self.start..self.current];
+        let value = substring.parse::<f64>();
+        match value {
+            Ok(value) =>         self.add_token_lit(TokenType::Number, Some(FValue(value))),
+            Err(value) => return Err(format!( "Could not parse number: {}", substring)),
+        }
+
+        Ok(())
+    }
+
+    fn peek_next(self: &Self) -> char {
+        if self.current + 1 >= self.source.len() {
+            return '\0';
+        }
+        
+        self.source.chars().nth(self.current + 1).unwrap()
     }
 
     fn string(self: &mut Self) -> Result<(), String> {
@@ -170,7 +209,7 @@ impl Scanner {
 
     fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>) {
         let mut text = "".to_string();
-        let lit = &self.source[self.start..self.current]
+        let _lit = &self.source[self.start..self.current]
             .chars()
             .map(|ch| text.push(ch));
 
@@ -178,7 +217,7 @@ impl Scanner {
 
         self.tokens.push(Token {
             token_type: token_type,
-            lexeme: text.to_string(),
+            lexeme: text,
             literal: literal,
             lineNumber: self.line,
         });
@@ -361,5 +400,36 @@ mod tests {
             StringValue(val) => assert_eq!(val, "ABC\ndef"),
             _ => panic!("Incorrect literal type"),
         }
+    }
+
+    #[test]
+    fn number_literals() {
+        let source = "123.123\n321.0\n5";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens();
+        for token in &scanner.tokens {
+            println!("{:?}", token.token_type);
+        }
+        assert_eq!(scanner.tokens.len(), 4);
+        for i in 0..3 {
+            assert_eq!(scanner.tokens[i].token_type, TokenType::Number);
+        }
+        match scanner.tokens[0].literal {
+            Some(FValue(val)) => assert_eq!(val, 123.123),
+            _ => panic!("Incorrect literal type"),
+        }
+        match scanner.tokens[1].literal {
+            Some(FValue(val)) => assert_eq!(val, 321.0),
+            _ => panic!("Incorrect literal type"),
+        }
+        match scanner.tokens[2].literal {
+            Some(FValue(val)) => assert_eq!(val, 5.0),
+            _ => panic!("Incorrect literal type"),
+        }
+        // match scanner.tokens[4].literal {
+        //     Some(FValue(val)) => assert_eq!(val, 5.0),
+        //     _ => panic!("Incorrect literal type"),
+        // }
+
     }
 }
