@@ -1,7 +1,38 @@
 use std::fmt::{self, format};
+use std::collections::HashMap;
 
 fn is_digit(ch: char) -> bool {
     ch as u8 >= '0' as u8 && ch as u8 <= '9' as u8
+}
+
+fn is_alpha(ch: char) -> bool {
+    let uch = ch as u8;
+    (uch >= 'a' as u8 && uch <= 'z' as u8) || (uch >= 'A' as u8 && uch <= 'Z' as u8) || (ch == '_')
+}
+
+fn is_alpha_numeric(ch: char) -> bool {
+    is_alpha(ch) || is_digit(ch) 
+}
+
+fn get_keywords_hashmap() -> HashMap<&'static str, TokenType> {
+    HashMap::from([
+        ("and", TokenType::And),
+        ("class", TokenType::Class),
+        ("else", TokenType::Else),
+        ("false", TokenType::False),
+        ("for", TokenType::For),
+        ("fun", TokenType::Fun),
+        ("if", TokenType::If),
+        ("nil", TokenType::Nil),
+        ("or", TokenType::Or),
+        ("print", TokenType::Print),
+        ("return", TokenType::Return),
+        ("super", TokenType::Super),
+        ("this", TokenType::This),
+        ("true", TokenType::True),
+        ("var", TokenType::Var),
+        ("while", TokenType::While),
+    ])
 }
 
 #[derive(Debug)]
@@ -11,6 +42,8 @@ pub struct Scanner {
     start: usize,
     current: usize, 
     line: usize,
+    keywords: HashMap<&'static str, TokenType>,
+
 }
 
 impl Scanner {
@@ -21,6 +54,7 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            keywords: get_keywords_hashmap(),
         }
     }
 
@@ -121,10 +155,25 @@ impl Scanner {
             
             c => {
                 if is_digit(c) {
-                    self.number();
+                    self.number()?;
+                } else if is_alpha(c) {
+                    self.identifier();
                 }
                 return Err(format!("Unrecognized char: {}", c));
             }
+        }
+    }
+
+    fn identifier(&mut self) {
+        while is_alpha_numeric(self.peek()) {
+            self.advance();
+        }
+
+        let substring = &self.source[self.start..self.current];
+        if let Some(&t_type) = self.keywords.get(substring) {
+            self.add_token(t_type);
+        } else {
+            self.add_token(TokenType::Identifier);
         }
     }
 
@@ -226,7 +275,7 @@ impl Scanner {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
     // Single-character tokens
     LeftParen,
@@ -431,5 +480,29 @@ mod tests {
         //     _ => panic!("Incorrect literal type"),
         // }
 
+    }
+
+    #[test]
+    fn get_identifier() {
+        let source = "var this_is_a_var = 12;\nwhile true {print 3};";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens();
+
+        assert_eq!(scanner.tokens.len(), 13);
+        // println!("{:?}", scanner.tokens);
+
+        assert_eq!(scanner.tokens[0].token_type, TokenType::Var);
+        assert_eq!(scanner.tokens[1].token_type, TokenType::Identifier);
+        assert_eq!(scanner.tokens[2].token_type, TokenType::Equal);
+        assert_eq!(scanner.tokens[3].token_type, TokenType::Number);
+        assert_eq!(scanner.tokens[4].token_type, TokenType::Semicolon);
+        assert_eq!(scanner.tokens[5].token_type, TokenType::While);
+        assert_eq!(scanner.tokens[6].token_type, TokenType::True);
+        assert_eq!(scanner.tokens[7].token_type, TokenType::LeftBrace);
+        assert_eq!(scanner.tokens[8].token_type, TokenType::Print);
+        assert_eq!(scanner.tokens[9].token_type, TokenType::Number);
+        assert_eq!(scanner.tokens[10].token_type, TokenType::RightBrace);
+        assert_eq!(scanner.tokens[11].token_type, TokenType::Semicolon);
+        assert_eq!(scanner.tokens[12].token_type, TokenType::Eof);
     }
 }
