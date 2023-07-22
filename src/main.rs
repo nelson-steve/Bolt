@@ -4,6 +4,8 @@
 #![allow(unused_imports)]
 
 mod scanner;
+mod expr;
+mod parser;
 use crate::scanner::*;
 
 use std::env;
