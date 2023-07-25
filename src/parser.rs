@@ -7,7 +7,7 @@ pub struct Parser {
     current: usize,
 }
 
-marco_rules! match_tokens {
+macro_rules! match_token {
     ($($tokens:ident),+) => {
         {
             let mut result = false;
