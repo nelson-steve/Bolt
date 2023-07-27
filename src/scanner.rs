@@ -342,6 +342,8 @@ pub enum LiteralValue {
     FValue(f64),
     StringValue(String),
     IdentifierValue(String),
+    
+    // None()
 }
 
 use LiteralValue::*;

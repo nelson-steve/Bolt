@@ -1,7 +1,10 @@
-use crate::{scanner::{
-    Token,
-    TokenType::{self, *},
-}, expr::LiteralValue};
+use crate::{
+    expr::LiteralValue,
+    scanner::{
+        Token,
+        TokenType::{self, *},
+    },
+};
 
 use crate::expr::{Expr, Expr::*};
 
@@ -75,7 +78,11 @@ impl Parser {
         while self.match_tokens(&[TokenType::Minus, TokenType::Plus]) {
             let op = self.previous();
             let rhs = self.factor();
-            expr = Binary { left: Box::from(expr), operator: op, right: Box::from(rhs), };
+            expr = Binary {
+                left: Box::from(expr),
+                operator: op,
+                right: Box::from(rhs),
+            };
         }
 
         return expr;
@@ -83,10 +90,14 @@ impl Parser {
 
     fn factor(&mut self) -> Expr {
         let mut expr = self.unary();
-        while self.match_tokens(&[Slash, Star]){
+        while self.match_tokens(&[Slash, Star]) {
             let op = self.previous();
             let rhs = self.unary();
-            expr = Binary { left: Box::from(expr), operator: op, right: Box::from(rhs) }
+            expr = Binary {
+                left: Box::from(expr),
+                operator: op,
+                right: Box::from(rhs),
+            }
         }
 
         return expr;
@@ -130,12 +141,15 @@ impl Parser {
         if self.match_tokens(&[Bang, Minus]) {
             let op = self.previous();
             let rhs = self.unary();
-            Unary { operator: op, right: Box::from(rhs), }
-        } else {
-                self.primary()
+            Unary {
+                operator: op,
+                right: Box::from(rhs),
             }
+        } else {
+            self.primary()
         }
-        
+    }
+
     fn primary(&mut self) -> Expr {
         if self.match_token(&TokenType::LeftParen) {
             let expr = self.expression();
@@ -147,7 +161,7 @@ impl Parser {
             let token = self.peek().clone();
             self.advance();
             Literal {
-                value: LiteralValue::from_token(&token)
+                value: LiteralValue::from_token(&token),
             }
         }
     }
@@ -167,5 +181,49 @@ impl Parser {
 
     fn is_at_end(&self) -> bool {
         self.peek().token_type == TokenType::Eof
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scanner::LiteralValue::*;
+    // use LiteralValue::*;
+
+    #[test]
+    fn test_addition() {
+        let one = Token{
+            token_type: TokenType::Number,
+            lexeme: "1".to_string(),
+            literal: Some(IntValue(1)),
+            lineNumber: 0,
+        };
+        let plus = Token{
+            token_type: Plus,
+            lexeme: "+".to_string(),
+            literal: Option::None,
+            lineNumber: 0,
+        };
+        let two = Token{
+            token_type: Number,
+            lexeme: "2".to_string(),
+            literal: Some(IntValue(2)),
+            lineNumber: 0,
+        };
+        let semicolon = Token{
+            token_type: Semicolon,
+            lexeme: ";".to_string(),
+            literal: Option::None,
+            lineNumber: 0,
+        };
+
+        let tokens = vec![one, plus, two, semicolon];
+        let mut parser = Parser::new(tokens);
+
+        let parsed_expr = parser.expression();
+        let string_expr = parsed_expr.to_string();
+
+        assert_eq!(string_expr, "(+ 1 2)");
     }
 }
