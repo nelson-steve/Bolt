@@ -1,6 +1,6 @@
 use crate::scanner::{self, Token, TokenType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
     Number(f32),
     StringValue(String),
@@ -135,7 +135,7 @@ impl Expr {
                         Err(format!("Minus not implemented for {}", right.to_string()))
                     }
                     (any, TokenType::Bang) => Ok(any.is_falsy()),
-                    _ => todo!(),
+                    (_, ttype) => Err(format!("{} is not a valid unary operator", ttype)),
                 }
             }
             Expr::Binary {
@@ -171,12 +171,6 @@ impl Expr {
                     (LiteralValue::Number(x), TokenType::LessEqual, LiteralValue::Number(y)) => {
                         Ok(LiteralValue::from_bool(x <= y))
                     }
-                    (LiteralValue::Number(x), TokenType::BangEqual, LiteralValue::Number(y)) => {
-                        Ok(LiteralValue::from_bool(x != y))
-                    }
-                    (LiteralValue::Number(x), TokenType::EqualEqual, LiteralValue::Number(y)) => {
-                        Ok(LiteralValue::from_bool(x == y))
-                    }
                     (LiteralValue::StringValue(_), op, LiteralValue::Number(_)) => {
                         Err(format!("{} is not defined string and number", op))
                     }
@@ -188,16 +182,8 @@ impl Expr {
                         TokenType::Plus,
                         LiteralValue::StringValue(s2),
                     ) => Ok(LiteralValue::StringValue(format!("{}{}", s1, s2))),
-                    (
-                        LiteralValue::StringValue(s1),
-                        TokenType::EqualEqual,
-                        LiteralValue::StringValue(s2),
-                    ) => Ok(LiteralValue::from_bool(s1 == s2)),
-                    (
-                        LiteralValue::StringValue(s1),
-                        TokenType::BangEqual,
-                        LiteralValue::StringValue(s2),
-                    ) => Ok(LiteralValue::from_bool(s1 != s2)),
+                    (x, TokenType::BangEqual, y) => Ok(LiteralValue::from_bool(x != y)),
+                    (x, TokenType::EqualEqual, y) => Ok(LiteralValue::from_bool(x == y)),
                     _ => todo!()
                 }
             }
