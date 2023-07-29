@@ -36,6 +36,16 @@ impl LiteralValue {
         }
     }
 
+    pub fn to_type(&self) -> &str {
+        match self {
+            LiteralValue::Number(_) => "Number",
+            LiteralValue::StringValue(_) => "String",
+            LiteralValue::True => "Boolean",
+            LiteralValue::False => "Boolean",
+            LiteralValue::Nil => "Nil",
+        }
+    }
+
     pub fn from_token(token: &Token) -> Self {
         match token.token_type {
             TokenType::Number => Self::Number(unwrap_as_f32(token.literal.clone())),
@@ -48,7 +58,7 @@ impl LiteralValue {
         }
     }
 
-    pub fn from_bool(b:bool)->Self {
+    pub fn from_bool(b: bool) -> Self {
         if b {
             LiteralValue::True
         } else {
@@ -132,7 +142,7 @@ impl Expr {
                 match (&right, operator.token_type) {
                     (LiteralValue::Number(x), TokenType::Minus) => Ok(LiteralValue::Number(-x)),
                     (_, TokenType::Minus) => {
-                        Err(format!("Minus not implemented for {}", right.to_string()))
+                        Err(format!("Minus not implemented for {}", right.to_type()))
                     }
                     (any, TokenType::Bang) => Ok(any.is_falsy()),
                     (_, ttype) => Err(format!("{} is not a valid unary operator", ttype)),
@@ -184,7 +194,22 @@ impl Expr {
                     ) => Ok(LiteralValue::StringValue(format!("{}{}", s1, s2))),
                     (x, TokenType::BangEqual, y) => Ok(LiteralValue::from_bool(x != y)),
                     (x, TokenType::EqualEqual, y) => Ok(LiteralValue::from_bool(x == y)),
-                    _ => todo!()
+                    (LiteralValue::StringValue(s1), TokenType::Greater, LiteralValue::StringValue(s2)) => {
+                        Ok(LiteralValue::from_bool(s1 > s2))
+                    }
+                    (LiteralValue::StringValue(s1), TokenType::GreaterEqual, LiteralValue::StringValue(s2)) => {
+                        Ok(LiteralValue::from_bool(s1 >= s2))
+                    }
+                    (LiteralValue::StringValue(s1), TokenType::Less, LiteralValue::StringValue(s2)) => {
+                        Ok(LiteralValue::from_bool(s1 < s2))
+                    }
+                    (LiteralValue::StringValue(s1), TokenType::LessEqual, LiteralValue::StringValue(s2)) => {
+                        Ok(LiteralValue::from_bool(s1 <= s2))
+                    }
+                    (x, ttype, y) => Err(format!(
+                        "{} is not implemented for operands {:?} and {:?}",
+                        ttype, x, y
+                    )),
                 }
             }
         }
