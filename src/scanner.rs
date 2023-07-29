@@ -35,10 +35,10 @@ fn get_keywords_hashmap() -> HashMap<&'static str, TokenType> {
     ])
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Scanner {
     source: String,
-    tokens: Vec<Token>,
+    pub tokens: Vec<Token>,
     start: usize,
     current: usize, 
     line: usize,
@@ -95,49 +95,49 @@ impl Scanner {
         let c = self.advance();
 
         match c {
-            '(' => Ok(self.add_token(TokenType::LeftParen)),
-            ')' => Ok(self.add_token(TokenType::RightParen)),
-            '{' => Ok(self.add_token(TokenType::LeftBrace)),
-            '}' => Ok(self.add_token(TokenType::RightBrace)),
-            ',' => Ok(self.add_token(TokenType::Comma)),
-            '.' => Ok(self.add_token(TokenType::Dot)),
-            '-' => Ok(self.add_token(TokenType::Minus)),
-            '+' => Ok(self.add_token(TokenType::Plus)),
-            ';' => Ok(self.add_token(TokenType::Semicolon)),
-            '*' => Ok(self.add_token(TokenType::Star)),
-            '!' => Ok({
+            '(' => self.add_token(TokenType::LeftParen),
+            ')' => self.add_token(TokenType::RightParen),
+            '{' => self.add_token(TokenType::LeftBrace),
+            '}' => self.add_token(TokenType::RightBrace),
+            ',' => self.add_token(TokenType::Comma),
+            '.' => self.add_token(TokenType::Dot),
+            '-' => self.add_token(TokenType::Minus),
+            '+' => self.add_token(TokenType::Plus),
+            ';' => self.add_token(TokenType::Semicolon),
+            '*' => self.add_token(TokenType::Star),
+            '!' => {
                 let token = if self.char_match('='){
                     TokenType::BangEqual
                 } else {
                     TokenType::Bang
                 };
                 self.add_token(token);
-            }),
-            '=' => Ok({
+            },
+            '=' => {
                 let token = if self.char_match('='){
                     TokenType::EqualEqual
                 } else {
                     TokenType::Equal
                 };
                 self.add_token(token);
-            }),
-            '<' => Ok({
+            },
+            '<' => {
                 let token = if self.char_match('='){
                     TokenType::LessEqual
                 } else {
                     TokenType::Equal
                 };
                 self.add_token(token);
-            }),
-            '>' => Ok({
+            },
+            '>' => {
                 let token = if self.char_match('='){
                     TokenType::GreaterEqual
                 } else {
                     TokenType::Equal
                 };
                 self.add_token(token);
-            }),
-            '/' => Ok({
+            },
+            '/' => {
                 if self.char_match('/'){
                     loop{
                         if self.peek() == '\n' || self.is_at_end() {
@@ -148,20 +148,22 @@ impl Scanner {
                 } else {
                     self.add_token(TokenType::Slash)
                 }
-            }),
-            ' ' | '\r' | '\t' => Ok({}),
-            '\n' => Ok(self.line += 1),
-            '"' => self.string(),
+            },
+            ' ' | '\r' | '\t' => {},
+            '\n' => self.line += 1,
+            '"' => self.string()?,
             
             c => {
                 if is_digit(c) {
-                    self.number()?;
+                    self.number()? 
                 } else if is_alpha(c) {
                     self.identifier();
+                } else {
+                    return Err(format!("Unrecognized char: {}", c));
                 }
-                return Err(format!("Unrecognized char: {}", c));
             }
         }
+        Ok(())
     }
 
     fn identifier(&mut self) {
@@ -257,12 +259,12 @@ impl Scanner {
     }
 
     fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>) {
-        let mut text = "".to_string();
-        let _lit = &self.source[self.start..self.current]
-            .chars()
-            .map(|ch| text.push(ch));
+        // let mut text = "".to_string();
+        // let _lit = &self.source[self.start..self.current]
+        //     .chars()
+        //     .map(|ch| text.push(ch));
 
-        //let text:String = self.source.as_bytes()[self.start..self.current].iter().collect();
+        let text = self.source[self.start..self.current].to_string();
 
         self.tokens.push(Token {
             token_type: token_type,
@@ -270,8 +272,6 @@ impl Scanner {
             literal: literal,
             lineNumber: self.line,
         });
-
-        // return token_type;
     }
 }
 
