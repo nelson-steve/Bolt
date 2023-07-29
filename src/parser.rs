@@ -34,6 +34,10 @@ impl Parser {
         }
     }
 
+    pub fn parse(&mut self) -> Result<Expr, String> {
+        self.expression()
+    }
+
     fn expression(&mut self) -> Result<Expr, String> {
         self.equality()
     }
@@ -132,8 +136,8 @@ impl Parser {
         return self.previous();
     }
 
-    fn peek(&self) -> &Token {
-        &self.tokens[self.current]
+    fn peek(&self) -> Token {
+        self.tokens[self.current].clone()
     }
 
     fn unary(&mut self) -> Result<Expr, String> {
@@ -150,19 +154,24 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<Expr, String> {
-        if self.match_token(&TokenType::LeftParen) {
-            let expr = self.expression()?;
-            self.consume(TokenType::RightParen, "Expected ')'")?;
-            Ok(Grouping {
-                expression: Box::from(expr),
-            })
-        } else {
-            let token = self.peek().clone();
-            self.advance();
-            Ok(Literal {
-                value: LiteralValue::from_token(&token),
-            })
+        let token = self.peek();
+
+        let result;
+        match token.token_type {
+            LeftParen => {
+                self.advance();
+                let expr = self.expression()?;
+                self.consume(TokenType::RightParen, "Expected ')'")?;
+                result = Grouping { expression: Box::from(expr), };
+            }
+            TokenType::False | TokenType::True | TokenType::Nil | TokenType::Number | TokenType::StringLit => {
+                self.advance();
+                result = Literal { value: LiteralValue::from_token(&token), }
+            }
+            _ => return Err("Expected expression".to_string()),
         }
+        
+        return Ok(result);
     }
 
     fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<(), String>{
@@ -182,6 +191,22 @@ impl Parser {
 
     fn is_at_end(&self) -> bool {
         self.peek().token_type == TokenType::Eof
+    }
+
+    fn synchronization(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            if self.previous().token_type == TokenType::Semicolon {
+                return;
+            }
+            
+            match self.peek().token_type {
+                TokenType::Class | TokenType::Fun | TokenType::Var | TokenType::For | TokenType::If | 
+                TokenType::While | TokenType::Print | TokenType::Return => return,
+                _ => (),
+            }
+        }
     }
 }
 
@@ -224,7 +249,7 @@ mod tests {
         let tokens = vec![one, plus, two, semicolon];
         let mut parser = Parser::new(tokens);
 
-        let parsed_expr = parser.expression().unwrap();
+        let parsed_expr = parser.parse().unwrap();
         let string_expr = parsed_expr.to_string();
 
         assert_eq!(string_expr, "(+ 1 2)");
@@ -237,9 +262,22 @@ mod tests {
         let tokens = scanner.scan_tokens().unwrap();
 
         let mut parser = Parser::new(tokens);
-        let parsed_expr = parser.expression().unwrap();
+        let parsed_expr = parser.parse().unwrap();
         let string_expr = parsed_expr.to_string();
 
         assert_eq!(string_expr, "(== (+ 1 2) (+ 5 7))");
+    }
+
+    #[test]
+    fn test_eq_with_paren() {
+        let source = "1 == (2 + 2)";
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens().unwrap();
+
+        let mut parser = Parser::new(tokens);
+        let parsed_expr = parser.parse().unwrap();
+        let string_expr = parsed_expr.to_string();
+
+        assert_eq!(string_expr, "(== 1 (group (+ 2 2)))");
     }
 }
