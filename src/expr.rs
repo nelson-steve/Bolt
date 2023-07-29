@@ -48,6 +48,14 @@ impl LiteralValue {
         }
     }
 
+    pub fn from_bool(b:bool)->Self {
+        if b {
+            LiteralValue::True
+        } else {
+            LiteralValue::False
+        }
+    }
+
     pub fn is_falsy(&self) -> LiteralValue {
         match self {
             Self::Number(x) => {
@@ -123,12 +131,76 @@ impl Expr {
 
                 match (&right, operator.token_type) {
                     (LiteralValue::Number(x), TokenType::Minus) => Ok(LiteralValue::Number(-x)),
-                    (_, TokenType::Minus) => Err(format!("Minus not implemented for {}", right.to_string())),
+                    (_, TokenType::Minus) => {
+                        Err(format!("Minus not implemented for {}", right.to_string()))
+                    }
                     (any, TokenType::Bang) => Ok(any.is_falsy()),
                     _ => todo!(),
                 }
             }
-            _ => todo!()
+            Expr::Binary {
+                left,
+                operator,
+                right,
+            } => {
+                let left = left.evaluate()?;
+                let right = right.evaluate()?;
+
+                match (&left, operator.token_type, &right) {
+                    (LiteralValue::Number(x), TokenType::Plus, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::Number(x + y))
+                    }
+                    (LiteralValue::Number(x), TokenType::Minus, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::Number(x - y))
+                    }
+                    (LiteralValue::Number(x), TokenType::Star, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::Number(x * y))
+                    }
+                    (LiteralValue::Number(x), TokenType::Slash, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::Number(x / y))
+                    }
+                    (LiteralValue::Number(x), TokenType::Greater, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::from_bool(x > y))
+                    }
+                    (LiteralValue::Number(x), TokenType::GreaterEqual, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::from_bool(x >= y))
+                    }
+                    (LiteralValue::Number(x), TokenType::Less, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::from_bool(x < y))
+                    }
+                    (LiteralValue::Number(x), TokenType::LessEqual, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::from_bool(x <= y))
+                    }
+                    (LiteralValue::Number(x), TokenType::BangEqual, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::from_bool(x != y))
+                    }
+                    (LiteralValue::Number(x), TokenType::EqualEqual, LiteralValue::Number(y)) => {
+                        Ok(LiteralValue::from_bool(x == y))
+                    }
+                    (LiteralValue::StringValue(_), op, LiteralValue::Number(_)) => {
+                        Err(format!("{} is not defined string and number", op))
+                    }
+                    (LiteralValue::Number(_), op, LiteralValue::StringValue(_)) => {
+                        Err(format!("{} is not defined string and number", op))
+                    }
+                    (
+                        LiteralValue::StringValue(s1),
+                        TokenType::Plus,
+                        LiteralValue::StringValue(s2),
+                    ) => Ok(LiteralValue::StringValue(format!("{}{}", s1, s2))),
+                    (
+                        LiteralValue::StringValue(s1),
+                        TokenType::EqualEqual,
+                        LiteralValue::StringValue(s2),
+                    ) => Ok(LiteralValue::from_bool(s1 == s2)),
+                    (
+                        LiteralValue::StringValue(s1),
+                        TokenType::BangEqual,
+                        LiteralValue::StringValue(s2),
+                    ) => Ok(LiteralValue::from_bool(s1 != s2)),
+                    _ => todo!()
+                }
+            }
         }
     }
 
