@@ -1,6 +1,6 @@
-use crate::scanner::{Token, TokenType, self};
+use crate::scanner::{self, Token, TokenType};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum LiteralValue {
     Number(f32),
     StringValue(String),
@@ -47,6 +47,28 @@ impl LiteralValue {
             _ => panic!("Could not create LiteralValue from {:?}", token),
         }
     }
+
+    pub fn is_falsy(&self) -> LiteralValue {
+        match self {
+            Self::Number(x) => {
+                if *x == 0.0 {
+                    Self::True
+                } else {
+                    Self::False
+                }
+            }
+            Self::StringValue(s) => {
+                if s.len() == 0 {
+                    Self::True
+                } else {
+                    Self::False
+                }
+            }
+            Self::True => Self::False,
+            Self::False => Self::True,
+            Self::Nil => Self::True,
+        }
+    }
 }
 
 // #[derive(Debug)]
@@ -89,6 +111,24 @@ impl Expr {
                 let right_str = (*right).to_string();
                 format!("({} {})", operator_str, right_str)
             }
+        }
+    }
+
+    pub fn evaluate(&self) -> Result<LiteralValue, String> {
+        match self {
+            Expr::Literal { value } => Ok((*value).clone()),
+            Expr::Grouping { expression } => expression.evaluate(),
+            Expr::Unary { operator, right } => {
+                let right = right.evaluate()?;
+
+                match (&right, operator.token_type) {
+                    (LiteralValue::Number(x), TokenType::Minus) => Ok(LiteralValue::Number(-x)),
+                    (_, TokenType::Minus) => Err(format!("Minus not implemented for {}", right.to_string())),
+                    (any, TokenType::Bang) => Ok(any.is_falsy()),
+                    _ => todo!(),
+                }
+            }
+            _ => todo!()
         }
     }
 
