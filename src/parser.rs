@@ -4,6 +4,7 @@ use crate::{
         Token,
         TokenType::{self, *},
     },
+    stmt::Stmt,
 };
 
 use crate::expr::{Expr, Expr::*};
@@ -13,19 +14,6 @@ pub struct Parser {
     current: usize,
 }
 
-// macro_rules! match_tokens {
-//     ($parser:ident, $($token:ident),+) => {
-//         {
-//             let mut result = false;
-//             {
-//                 $(result |= $parser.match_token($token);)*
-//             }
-
-//             return result;
-//         }
-//     }
-// }
-
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Self {
@@ -34,8 +22,42 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expr, String> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, String> {
+        let mut stmts = vec![];
+        let mut errs = vec![];
+
+        while !self.is_at_end() {
+            let stmt = self.statement();
+            match stmt {
+                Ok(s) => stmts.push(s),
+                Err(msg) => errs.push(msg),
+            }
+        }
+        if errs.len() == 0 {
+            Ok(stmts)
+        } else {
+            Err(errs.join("\n"))
+        }
+    }
+
+    fn statement(&mut self) -> Result<Stmt, String> {
+        if self.match_token(&TokenType::Print) {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        }
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, String> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after value.")?;
+        Ok(Stmt::Print { expression: value })
+    }
+
+    fn expression_statement(&mut self) -> Result<Stmt, String> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after  expression.")?;
+        Ok(Stmt::Expression { expression: expr })
     }
 
     fn expression(&mut self) -> Result<Expr, String> {
@@ -162,19 +184,27 @@ impl Parser {
                 self.advance();
                 let expr = self.expression()?;
                 self.consume(TokenType::RightParen, "Expected ')'")?;
-                result = Grouping { expression: Box::from(expr), };
+                result = Grouping {
+                    expression: Box::from(expr),
+                };
             }
-            TokenType::False | TokenType::True | TokenType::Nil | TokenType::Number | TokenType::StringLit => {
+            TokenType::False
+            | TokenType::True
+            | TokenType::Nil
+            | TokenType::Number
+            | TokenType::StringLit => {
                 self.advance();
-                result = Literal { value: LiteralValue::from_token(&token), }
+                result = Literal {
+                    value: LiteralValue::from_token(&token),
+                }
             }
             _ => return Err("Expected expression".to_string()),
         }
-        
+
         return Ok(result);
     }
 
-    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<(), String>{
+    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<(), String> {
         let token = self.peek();
         if token.token_type == token_type {
             self.advance();
@@ -200,16 +230,21 @@ impl Parser {
             if self.previous().token_type == TokenType::Semicolon {
                 return;
             }
-            
+
             match self.peek().token_type {
-                TokenType::Class | TokenType::Fun | TokenType::Var | TokenType::For | TokenType::If | 
-                TokenType::While | TokenType::Print | TokenType::Return => return,
+                TokenType::Class
+                | TokenType::Fun
+                | TokenType::Var
+                | TokenType::For
+                | TokenType::If
+                | TokenType::While
+                | TokenType::Print
+                | TokenType::Return => return,
                 _ => (),
             }
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -221,25 +256,25 @@ mod tests {
 
     #[test]
     fn test_addition() {
-        let one = Token{
+        let one = Token {
             token_type: TokenType::Number,
             lexeme: "1".to_string(),
             literal: Some(IntValue(1)),
             lineNumber: 0,
         };
-        let plus = Token{
+        let plus = Token {
             token_type: Plus,
             lexeme: "+".to_string(),
             literal: Option::None,
             lineNumber: 0,
         };
-        let two = Token{
+        let two = Token {
             token_type: Number,
             lexeme: "2".to_string(),
             literal: Some(IntValue(2)),
             lineNumber: 0,
         };
-        let semicolon = Token{
+        let semicolon = Token {
             token_type: Semicolon,
             lexeme: ";".to_string(),
             literal: Option::None,
