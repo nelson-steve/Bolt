@@ -1,4 +1,7 @@
-use crate::{scanner::{self, Token, TokenType}, environment::{self, Environment}};
+use crate::{
+    environment::{self, Environment},
+    scanner::{self, Token, TokenType},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -92,6 +95,10 @@ impl LiteralValue {
 // #[derive(Debug)]
 // #[derive(Clone)]
 pub enum Expr {
+    Assign {
+        name: Token,
+        value: Box<Expr>,
+    },
     Binary {
         left: Box<Expr>,
         operator: Token,
@@ -107,14 +114,15 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
-    Variable{
-        name: Token
-    }
+    Variable {
+        name: Token,
+    },
 }
 
 impl Expr {
     pub fn to_string(&self) -> String {
         match self {
+            Expr::Assign { name, value } => format!("{name:?} = {}", value.to_string()),
             Expr::Binary {
                 left,
                 operator,
@@ -136,13 +144,23 @@ impl Expr {
         }
     }
 
-    pub fn evaluate(&self, environment: &Environment) -> Result<LiteralValue, String> {
+    pub fn evaluate(&self, environment: &mut Environment) -> Result<LiteralValue, String> {
         match self {
-            Expr::Variable { name } => 
-                match environment.get(&name.lexeme) {
-                    Some(value) => Ok(value.clone()),
-                    None => Err(format!("Variable '{}' has not been declared", name.lexeme)),
-                },
+            Expr::Assign { name, value } => {
+                let get_value = environment.get(&name.lexeme);
+                match get_value {
+                    Some(_) => {
+                        let new_value = (*value).evaluate(environment)?;
+                        environment.define(name.lexeme.clone(), new_value.clone());
+                        Ok(new_value)
+                    }
+                    None => Err(format!("Variable {name:?} has not been declared")),
+                }
+            }
+            Expr::Variable { name } => match environment.get(&name.lexeme) {
+                Some(value) => Ok(value.clone()),
+                None => Err(format!("Variable '{}' has not been declared", name.lexeme)),
+            },
             Expr::Literal { value } => Ok((*value).clone()),
             Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, right } => {
@@ -203,18 +221,26 @@ impl Expr {
                     ) => Ok(LiteralValue::StringValue(format!("{}{}", s1, s2))),
                     (x, TokenType::BangEqual, y) => Ok(LiteralValue::from_bool(x != y)),
                     (x, TokenType::EqualEqual, y) => Ok(LiteralValue::from_bool(x == y)),
-                    (LiteralValue::StringValue(s1), TokenType::Greater, LiteralValue::StringValue(s2)) => {
-                        Ok(LiteralValue::from_bool(s1 > s2))
-                    }
-                    (LiteralValue::StringValue(s1), TokenType::GreaterEqual, LiteralValue::StringValue(s2)) => {
-                        Ok(LiteralValue::from_bool(s1 >= s2))
-                    }
-                    (LiteralValue::StringValue(s1), TokenType::Less, LiteralValue::StringValue(s2)) => {
-                        Ok(LiteralValue::from_bool(s1 < s2))
-                    }
-                    (LiteralValue::StringValue(s1), TokenType::LessEqual, LiteralValue::StringValue(s2)) => {
-                        Ok(LiteralValue::from_bool(s1 <= s2))
-                    }
+                    (
+                        LiteralValue::StringValue(s1),
+                        TokenType::Greater,
+                        LiteralValue::StringValue(s2),
+                    ) => Ok(LiteralValue::from_bool(s1 > s2)),
+                    (
+                        LiteralValue::StringValue(s1),
+                        TokenType::GreaterEqual,
+                        LiteralValue::StringValue(s2),
+                    ) => Ok(LiteralValue::from_bool(s1 >= s2)),
+                    (
+                        LiteralValue::StringValue(s1),
+                        TokenType::Less,
+                        LiteralValue::StringValue(s2),
+                    ) => Ok(LiteralValue::from_bool(s1 < s2)),
+                    (
+                        LiteralValue::StringValue(s1),
+                        TokenType::LessEqual,
+                        LiteralValue::StringValue(s2),
+                    ) => Ok(LiteralValue::from_bool(s1 <= s2)),
                     (x, ttype, y) => Err(format!(
                         "{} is not implemented for operands {:?} and {:?}",
                         ttype, x, y
