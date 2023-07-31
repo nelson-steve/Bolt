@@ -362,7 +362,7 @@ mod tests {
 
         let mut parser = Parser::new(tokens);
         let parsed_expr = parser.parse().unwrap();
-        let string_expr = parsed_expr.to_string();
+        let string_expr = parsed_expr[0].to_string();
 
         assert_eq!(string_expr, "(== (+ 1 2) (+ 5 7))");
     }
@@ -375,7 +375,7 @@ mod tests {
 
         let mut parser = Parser::new(tokens);
         let parsed_expr = parser.parse().unwrap();
-        let string_expr = parsed_expr.to_string();
+        let string_expr = parsed_expr[0].to_string();
 
         assert_eq!(string_expr, "(== 1 (group (+ 2 2)))");
     }
