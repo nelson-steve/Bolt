@@ -27,10 +27,13 @@ impl Parser {
         let mut errs = vec![];
 
         while !self.is_at_end() {
-            let stmt = self.statement();
+            let stmt = self.declaration();
             match stmt {
                 Ok(s) => stmts.push(s),
-                Err(msg) => errs.push(msg),
+                Err(msg) => {
+                    errs.push(msg);
+                    self.synchronization();
+                },
             }
         }
         if errs.len() == 0 {
@@ -38,6 +41,43 @@ impl Parser {
         } else {
             Err(errs.join("\n"))
         }
+    }
+
+    fn declaration(&mut self) -> Result<Stmt, String> {
+        if self.match_token(&TokenType::Var) {
+            match self.var_declaration() {
+                Ok(stmt) => Ok(stmt),
+                Err(msg) => {
+                    // self.synchronization();
+                    return Err(msg);
+                }
+            }
+        } else {
+            self.statement()
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt, String> {
+        let token = self.consume(TokenType::Identifier, "Expected variable name")?;
+
+        let initializer;
+        if self.match_token(&TokenType::Equal) {
+            initializer = self.expression()?;
+        } else {
+            initializer = Literal {
+                value: LiteralValue::Nil,
+            };
+        }
+
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after variable declaration",
+        )?;
+
+        Ok(Stmt::Var {
+            name: token,
+            initializer: initializer,
+        })
     }
 
     fn statement(&mut self) -> Result<Stmt, String> {
@@ -71,7 +111,7 @@ impl Parser {
         while self.match_tokens(&[BangEqual, EqualEqual]) {
             let op = self.previous();
             let rhs = self.comparison()?;
-            expr = Expr::Binary {
+            expr = Binary {
                 left: Box::from(expr),
                 operator: op,
                 right: Box::from(rhs),
@@ -198,20 +238,26 @@ impl Parser {
                     value: LiteralValue::from_token(&token),
                 }
             }
-            _ => return Err("Expected expression".to_string()),
+            TokenType::Identifier => {
+                self.advance();
+                result = Variable { name: self.previous() };
+            }
+            _ => {
+                return Err("Expected expression".to_string())
+            },
         }
 
         return Ok(result);
     }
 
-    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<(), String> {
+    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<Token, String> {
         let token = self.peek();
         if token.token_type == token_type {
             self.advance();
-            Ok(())
+            let token = self.previous();
+            Ok(token)
         } else {
             Err(msg.to_string())
-            // panic!("{}", msg);
         }
     }
 
