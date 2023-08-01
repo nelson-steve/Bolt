@@ -11,6 +11,10 @@ pub enum Stmt {
         then: Box<Stmt>,
         els: Option<Box<Stmt>>,
     },
+    WhileStmt {
+        condition: Expr,
+        body: Box<Stmt>,
+    }
 }
 
 impl Stmt {
@@ -30,6 +34,7 @@ impl Stmt {
                 )
             }
             Stmt::IfStmt { predicate, then, els } => todo!(),
+            Stmt::WhileStmt { condition, body } => todo!(),
         }
     }
 }

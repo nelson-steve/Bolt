@@ -34,7 +34,7 @@ fn run(interpreter: &mut Interpreter, contents: &str) -> Result<(), String> {
 
     let mut parser = Parser::new(tokens);
     let stmts = parser.parse()?;
-    interpreter.interpret(stmts)?;
+    interpreter.interpret(stmts.iter().map(|b| b).collect())?;
     return Ok(());
 }
 
@@ -70,7 +70,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 2 {
-        println!("Usage: bolt[script]");
+        // println!("Usage: bolt[script]");
     } else if args.len() == 2 {
         match run_file(&args[1]) {
             Ok(_) => exit(0),

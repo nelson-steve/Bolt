@@ -4,7 +4,7 @@ use crate::{
         Token,
         TokenType::{self, *},
     },
-    stmt::Stmt,
+    stmt::{Stmt, self},
 };
 
 use crate::expr::{Expr, Expr::*};
@@ -87,9 +87,21 @@ impl Parser {
             self.block_statement()
         } else if self.match_token(&TokenType::If) {
             self.if_statement()
-        } else {
+        } else if self.match_token(&TokenType::While) {
+            self.while_statement()
+        }
+         else {
             self.expression_statement()
         }
+    }
+
+    fn while_statement(&mut self) -> Result<Stmt, String> {
+        self.consume(TokenType::LeftParen, "Expected '(' after 'while'")?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen, "Exptected ')' after condition.")?;
+        let body = Box::new(self.statement()?);
+
+        Ok(Stmt::WhileStmt { condition, body })
     }
 
     fn if_statement(&mut self) -> Result<Stmt, String> {
@@ -395,7 +407,7 @@ mod tests {
     #[test]
     fn test_addition() {
         let one = Token {
-            token_type: TokenType::Number,
+            token_type: TokenType::Number, 
             lexeme: "1".to_string(),
             literal: Some(IntValue(1)),
             lineNumber: 0,
