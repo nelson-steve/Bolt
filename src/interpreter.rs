@@ -28,7 +28,8 @@ impl Interpreter {
                     println!("{}", value.to_string());
                 }
                 Stmt::Var { name, initializer } => {
-                    let value = initializer.evaluate(self.environment.clone());
+                    let value = initializer.evaluate(self.environment.clone())?;
+                    self.environment.borrow_mut().define(name.lexeme.clone(), value);
                 }
                 Stmt::Block { statements } => {
                     let mut new_environment = Environment::new();
