@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use crate::{
     environment::{self, Environment},
     scanner::{self, Token, TokenType},
@@ -32,7 +34,7 @@ impl LiteralValue {
     pub fn to_string(&self) -> String {
         match self {
             LiteralValue::Number(x) => x.to_string(),
-            LiteralValue::StringValue(x) => x.clone(),
+            LiteralValue::StringValue(x) => format!("\"{}\"", x),
             LiteralValue::True => "true".to_string(),
             LiteralValue::False => "false".to_string(),
             LiteralValue::Nil => "nil".to_string(),
@@ -132,6 +134,11 @@ pub enum Expr {
     Literal {
         value: LiteralValue,
     },
+    Logical {
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>,
+    },
     Unary {
         operator: Token,
         right: Box<Expr>,
@@ -163,6 +170,16 @@ impl Expr {
                 format!("({} {})", operator_str, right_str)
             }
             Expr::Variable { name } => format!("(var {})", name.lexeme),
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => format!(
+                "({} {} {})",
+                operator.to_string(),
+                left.to_string(),
+                right.to_string()
+            ),
         }
     }
 
@@ -182,6 +199,33 @@ impl Expr {
                 None => Err(format!("Variable '{}' has not been declared", name.lexeme)),
             },
             Expr::Literal { value } => Ok((*value).clone()),
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => {
+                match operator.token_type {
+                    TokenType::Or => {
+                        let lhs_value = left.evaluate(environment)?;
+                        let lhs_true = lhs_value.is_truthy();
+                        if lhs_true == LiteralValue::True {
+                            Ok(lhs_value)
+                        } else {
+                            right.evaluate(environment)
+                        }
+                    }
+                    TokenType::And => {
+                        let lhs_value = left.evaluate(environment)?;
+                        let lhs_true = lhs_value.is_truthy();
+                        if lhs_true == LiteralValue::False {
+                            Ok(lhs_true)
+                        } else {
+                            right.evaluate(environment)
+                        }
+                    }
+                    ttype => Err(format!("Invalid token in logical expression: {}", ttype))
+                }
+            },
             Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, right } => {
                 let right = right.evaluate(environment)?;

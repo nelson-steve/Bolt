@@ -33,7 +33,7 @@ impl Parser {
                 Err(msg) => {
                     errs.push(msg);
                     self.synchronization();
-                },
+                }
             }
         }
         if errs.len() == 0 {
@@ -83,9 +83,9 @@ impl Parser {
     fn statement(&mut self) -> Result<Stmt, String> {
         if self.match_token(&TokenType::Print) {
             self.print_statement()
-        } else if self.match_token(&TokenType::LeftBrace){
+        } else if self.match_token(&TokenType::LeftBrace) {
             self.block_statement()
-        } else if self.match_token(&TokenType::If){
+        } else if self.match_token(&TokenType::If) {
             self.if_statement()
         } else {
             self.expression_statement()
@@ -105,7 +105,11 @@ impl Parser {
             Option::None
         };
 
-        Ok(Stmt::IfStmt { predicate, then, els })
+        Ok(Stmt::IfStmt {
+            predicate,
+            then,
+            els,
+        })
     }
 
     fn block_statement(&mut self) -> Result<Stmt, String> {
@@ -115,8 +119,8 @@ impl Parser {
             let decl = self.declaration()?;
             statements.push(decl);
         }
-        
-        self.consume(TokenType::RightBrace, "Expected '}' after a block");
+
+        self.consume(TokenType::RightBrace, "Expected '}' after a block")?;
         Ok(Stmt::Block { statements })
     }
 
@@ -137,21 +141,55 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr, String> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if self.match_token(&TokenType::Equal) {
             let equal = self.previous();
             let value = self.assignment()?;
 
             match expr {
-                Variable {name} => {
-                    Ok(Assign { name, value: Box::from(value) })
-                }
+                Variable { name } => Ok(Assign {
+                    name,
+                    value: Box::from(value),
+                }),
                 _ => Err("Invalid argument target".to_string()),
             }
         } else {
             Ok(expr)
         }
+    }
+
+    fn or(&mut self) -> Result<Expr, String> {
+        let mut expr = self.and()?;
+
+        while self.match_token(&TokenType::Or) {
+            let operator = self.previous();
+            let right = self.and()?;
+
+            expr = Logical {
+                left: Box::new(expr),
+                operator: operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> Result<Expr, String> {
+        let mut expr = self.equality()?;
+
+        while self.match_token(&TokenType::And) {
+            let operator = self.previous();
+            let right = self.equality()?;
+            expr = Logical {
+                left: Box::new(expr),
+                operator: operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr, String> {
@@ -290,11 +328,11 @@ impl Parser {
             }
             TokenType::Identifier => {
                 self.advance();
-                result = Variable { name: self.previous() };
+                result = Variable {
+                    name: self.previous(),
+                };
             }
-            _ => {
-               return Err("Expected expression".to_string())
-            },
+            _ => return Err("Expected expression".to_string()),
         }
 
         return Ok(result);
