@@ -85,9 +85,27 @@ impl Parser {
             self.print_statement()
         } else if self.match_token(&TokenType::LeftBrace){
             self.block_statement()
+        } else if self.match_token(&TokenType::If){
+            self.if_statement()
         } else {
             self.expression_statement()
         }
+    }
+
+    fn if_statement(&mut self) -> Result<Stmt, String> {
+        self.consume(TokenType::LeftParen, "Expected '(' after 'if'")?;
+        let predicate = self.expression()?;
+        self.consume(TokenType::RightParen, "Expected ')' after if-predicate")?;
+
+        let then = Box::new(self.statement()?);
+        let els = if self.match_token(&TokenType::Else) {
+            let stm = self.statement()?;
+            Some(Box::new(stm))
+        } else {
+            Option::None
+        };
+
+        Ok(Stmt::IfStmt { predicate, then, els })
     }
 
     fn block_statement(&mut self) -> Result<Stmt, String> {

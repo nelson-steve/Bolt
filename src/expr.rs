@@ -90,6 +90,28 @@ impl LiteralValue {
             Self::Nil => Self::True,
         }
     }
+
+    pub fn is_truthy(&self) -> LiteralValue {
+        match self {
+            Self::Number(x) => {
+                if *x == 0.0 {
+                    Self::False
+                } else {
+                    Self::True
+                }
+            }
+            Self::StringValue(s) => {
+                if s.len() == 0 {
+                    Self::False
+                } else {
+                    Self::True
+                }
+            }
+            Self::True => Self::True,
+            Self::False => Self::False,
+            Self::Nil => Self::False,
+        }
+    }
 }
 
 // #[derive(Debug)]

@@ -6,6 +6,11 @@ pub enum Stmt {
     Print { expression: Expr },
     Var { name: Token, initializer: Expr },
     Block { statements: Vec<Stmt> },
+    IfStmt {
+        predicate: Expr,
+        then: Box<Stmt>,
+        els: Option<Box<Stmt>>,
+    },
 }
 
 impl Stmt {
@@ -24,6 +29,7 @@ impl Stmt {
                         .collect::<String>()
                 )
             }
+            Stmt::IfStmt { predicate, then, els } => todo!(),
         }
     }
 }

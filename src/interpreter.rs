@@ -1,7 +1,9 @@
 use crate::environment::{self, Environment};
 use crate::expr::{Expr, LiteralValue};
+use crate::scanner::TokenType;
 use crate::stmt::Stmt;
 use std::rc::Rc;
+use std::vec;
 
 pub struct Interpreter {
     environement: Rc<Environment>,
@@ -28,15 +30,16 @@ impl Interpreter {
                         Rc::get_mut(&mut self.environement)
                             .expect("Could not get mutable reference to environemnt"),
                     )?;
-                    println!("{value:?}");
+                    println!("\"{}\"", value.to_string());
                 }
                 Stmt::Var { name, initializer } => {
                     let value = initializer.evaluate(
-                            Rc::get_mut(&mut self.environement)
-                                .expect("Could not get mutable reference to environemnt"),
+                        Rc::get_mut(&mut self.environement)
+                            .expect("Could not get mutable reference to environemnt"),
                     )?;
                     Rc::get_mut(&mut self.environement)
-                    .expect("Could not get mutable reference to environemnt").define(name.lexeme, value);
+                        .expect("Could not get mutable reference to environemnt")
+                        .define(name.lexeme, value);
                 }
                 Stmt::Block { statements } => {
                     let mut new_environment = Environment::new();
@@ -48,6 +51,21 @@ impl Interpreter {
                     self.environement = old_environment;
 
                     block_result?;
+                }
+                Stmt::IfStmt {
+                    predicate,
+                    then,
+                    els,
+                } => {
+                    let truth_value = predicate.evaluate(
+                        Rc::get_mut(&mut self.environement)
+                            .expect("Could not load mutable ref to env"),
+                    )?;
+                    if truth_value.is_truthy() == LiteralValue::True {
+                        self.interpret(vec![*then])?;
+                    } else if let Some(els_stmt) = els{
+                        self.interpret(vec![*els_stmt])?;
+                    }
                 }
             };
         }
