@@ -13,6 +13,7 @@ use crate::scanner::*;
 use crate::parser::*;
 use crate::interpreter::*;
 
+use core::num;
 use std::env;
 use std::fs;
 use std::io::{self, BufRead, Write};

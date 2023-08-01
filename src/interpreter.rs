@@ -1,37 +1,57 @@
+use crate::environment::{self, Environment};
 use crate::expr::{Expr, LiteralValue};
 use crate::stmt::Stmt;
-use crate::environment::{Environment, self};
+use std::rc::Rc;
 
 pub struct Interpreter {
-    environement: Environment,
+    environement: Rc<Environment>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self { environement: Environment::new(), }
-    }
-
-    pub fn interpret_expr(&mut self, expr: Expr) -> Result<LiteralValue, String> {
-        expr.evaluate(&mut self.environement)
+        Self {
+            environement: Rc::new(Environment::new()),
+        }
     }
 
     pub fn interpret(&mut self, stmts: Vec<Stmt>) -> Result<(), String> {
-        for stmt in stmts{
+        for stmt in stmts {
             match stmt {
                 Stmt::Expression { expression } => {
-                    expression.evaluate(&mut self.environement)?;
+                    expression.evaluate(
+                        Rc::get_mut(&mut self.environement)
+                            .expect("Could not get mutable reference to environemnt"),
+                    )?;
                 }
                 Stmt::Print { expression } => {
-                    let value = expression.evaluate(&mut self.environement)?;
+                    let value = expression.evaluate(
+                        Rc::get_mut(&mut self.environement)
+                            .expect("Could not get mutable reference to environemnt"),
+                    )?;
                     println!("{value:?}");
                 }
                 Stmt::Var { name, initializer } => {
-                    let value = initializer.evaluate(&mut self.environement)?;
-                    self.environement.define(name.lexeme, value);
+                    let value = initializer.evaluate(
+                            Rc::get_mut(&mut self.environement)
+                                .expect("Could not get mutable reference to environemnt"),
+                    )?;
+                    Rc::get_mut(&mut self.environement)
+                    .expect("Could not get mutable reference to environemnt").define(name.lexeme, value);
+                }
+                Stmt::Block { statements } => {
+                    let mut new_environment = Environment::new();
+                    new_environment.enclosing = Some(self.environement.clone());
+
+                    let old_environment = self.environement.clone();
+                    self.environement = Rc::new(new_environment);
+                    let block_result = self.interpret(statements);
+                    self.environement = old_environment;
+
+                    block_result?;
                 }
             };
         }
-            
+
         Ok(())
     }
 }

@@ -1,9 +1,10 @@
-use std::collections::HashMap;
 use crate::expr::LiteralValue;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 pub struct Environment {
     values: HashMap<String, LiteralValue>,
-    enclosing: Option<Box<Environment>>,
+    pub enclosing: Option<Rc<Environment>>,
 }
 
 impl Environment {
@@ -25,7 +26,6 @@ impl Environment {
             (Some(val), _) => Some(val),
             (None, Some(env)) => env.get(name),
             (None, None) => None,
-
         }
     }
 
@@ -37,10 +37,12 @@ impl Environment {
                 self.values.insert(name.to_string(), value);
                 true
             }
-            (None, Some(env)) => env.assign(name, value),
-            (None, None) => false
+            (None, Some(env)) => Rc::get_mut(&mut env.clone())
+                .expect("Could not get mutable ref of env")
+                .assign(name, value),
+            (None, None) => false,
         }
-    } 
+    }
 }
 
 #[cfg(test)]

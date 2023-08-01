@@ -1,19 +1,29 @@
 use crate::expr::Expr;
 use crate::scanner::Token;
 
-pub enum Stmt{
-    Expression {expression: Expr},
-    Print {expression: Expr},
-    Var {name: Token, initializer: Expr},
+pub enum Stmt {
+    Expression { expression: Expr },
+    Print { expression: Expr },
+    Var { name: Token, initializer: Expr },
+    Block { statements: Vec<Stmt> },
 }
 
 impl Stmt {
     pub fn to_string(&self) -> String {
         // use Stmt::*;
         match self {
-            Self::Expression { expression } => expression.to_string(),
-            Self::Print { expression } => format!("(print {})", expression.to_string()),
-            Self::Var { name, initializer } => format!("(var {})", name.to_string()),
+            Stmt::Expression { expression } => expression.to_string(),
+            Stmt::Print { expression } => format!("(print {})", expression.to_string()),
+            Stmt::Var { name, initializer } => format!("(var {})", name.to_string()),
+            Stmt::Block { statements } => {
+                format!(
+                    "(block {})",
+                    statements
+                        .into_iter()
+                        .map(|stmt| stmt.to_string())
+                        .collect::<String>()
+                )
+            }
         }
     }
 }

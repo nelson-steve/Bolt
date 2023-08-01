@@ -83,9 +83,23 @@ impl Parser {
     fn statement(&mut self) -> Result<Stmt, String> {
         if self.match_token(&TokenType::Print) {
             self.print_statement()
+        } else if self.match_token(&TokenType::LeftBrace){
+            self.block_statement()
         } else {
             self.expression_statement()
         }
+    }
+
+    fn block_statement(&mut self) -> Result<Stmt, String> {
+        let mut statements = vec![];
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            let decl = self.declaration()?;
+            statements.push(decl);
+        }
+        
+        self.consume(TokenType::RightBrace, "Expected '}' after a block");
+        Ok(Stmt::Block { statements })
     }
 
     fn print_statement(&mut self) -> Result<Stmt, String> {
@@ -261,7 +275,7 @@ impl Parser {
                 result = Variable { name: self.previous() };
             }
             _ => {
-                return Err("Expected expression".to_string())
+               return Err("Expected expression".to_string())
             },
         }
 
@@ -277,6 +291,10 @@ impl Parser {
         } else {
             Err(msg.to_string())
         }
+    }
+
+    fn check(&mut self, typ: TokenType) -> bool {
+        self.peek().token_type == typ
     }
 
     fn previous(&self) -> Token {
@@ -349,7 +367,8 @@ mod tests {
         let mut parser = Parser::new(tokens);
 
         let parsed_expr = parser.parse().unwrap();
-        let string_expr = parsed_expr.to_string();
+        assert_eq!(parsed_expr.len(), 1);
+        let string_expr = parsed_expr[0].to_string();
 
         assert_eq!(string_expr, "(+ 1 2)");
     }
