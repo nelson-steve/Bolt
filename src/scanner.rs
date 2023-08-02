@@ -338,12 +338,8 @@ impl std::fmt::Display for TokenType {
 
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
-    IntValue(i64),
     FValue(f64),
     StringValue(String),
-    IdentifierValue(String),
-    
-    // None()
 }
 
 use LiteralValue::*;

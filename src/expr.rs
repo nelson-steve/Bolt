@@ -16,7 +16,6 @@ pub enum LiteralValue {
 
 fn unwrap_as_f32(literal: Option<scanner::LiteralValue>) -> f32 {
     match literal {
-        Some(scanner::LiteralValue::IntValue(x)) => x as f32,
         Some(scanner::LiteralValue::FValue(x)) => x as f32,
         _ => panic!("Could not unwrap as f32"),
     }
@@ -25,7 +24,6 @@ fn unwrap_as_f32(literal: Option<scanner::LiteralValue>) -> f32 {
 fn unwrap_as_string(literal: Option<scanner::LiteralValue>) -> String {
     match literal {
         Some(scanner::LiteralValue::StringValue(s)) => s.clone(),
-        Some(scanner::LiteralValue::IdentifierValue(s)) => s.clone(),
         _ => panic!("Could not unwrap as string"),
     }
 }
@@ -149,6 +147,7 @@ pub enum Expr {
 }
 
 impl Expr {
+    #[allow(dead_code)]
     pub fn to_string(&self) -> String {
         match self {
             Expr::Assign { name, value } => format!("{name:?} = {}", value.to_string()),
@@ -314,7 +313,7 @@ impl Expr {
             }
         }
     }
-
+    #[allow(dead_code)]
     pub fn print(&self) {
         println!("{}", self.to_string());
     }
@@ -325,7 +324,6 @@ mod tests {
     use std::fmt::Binary;
 
     use super::Expr::*;
-    use super::LiteralValue::*;
     use super::*;
 
     #[test]
@@ -337,11 +335,11 @@ mod tests {
             lineNumber: 0,
         };
         let onetwothree = Literal {
-            value: Number(123.0),
+            value: LiteralValue::Number(123.0),
         };
         let group = Grouping {
             expression: Box::from(Literal {
-                value: Number(45.67),
+                value: LiteralValue::Number(45.67),
             }),
         };
 

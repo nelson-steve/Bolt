@@ -156,7 +156,6 @@ impl Parser {
         let expr = self.or()?;
 
         if self.match_token(&TokenType::Equal) {
-            let equal = self.previous();
             let value = self.assignment()?;
 
             match expr {
@@ -409,7 +408,7 @@ mod tests {
         let one = Token {
             token_type: TokenType::Number, 
             lexeme: "1".to_string(),
-            literal: Some(IntValue(1)),
+            literal: Some(FValue(1.0)),
             lineNumber: 0,
         };
         let plus = Token {
@@ -421,7 +420,7 @@ mod tests {
         let two = Token {
             token_type: Number,
             lexeme: "2".to_string(),
-            literal: Some(IntValue(2)),
+            literal: Some(FValue(2.0)),
             lineNumber: 0,
         };
         let semicolon = Token {
@@ -430,8 +429,15 @@ mod tests {
             literal: Option::None,
             lineNumber: 0,
         };
+        let eof = Token {
+            token_type: Eof,
+            lexeme: "".to_string(),
+            literal: Option::None,
+            lineNumber: 0,
+        };
 
-        let tokens = vec![one, plus, two, semicolon];
+        let tokens = vec![one, plus, two, semicolon, eof];
+        println!("test addition tokens length: {}", tokens.len());
         let mut parser = Parser::new(tokens);
 
         let parsed_expr = parser.parse().unwrap();
@@ -443,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_comparison() {
-        let source = "1 + 2 == 5 + 7";
+        let source = "1 + 2 == 5 + 7;";
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens().unwrap();
 
@@ -456,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_eq_with_paren() {
-        let source = "1 == (2 + 2)";
+        let source = "1 == (2 + 2);";
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens().unwrap();
 

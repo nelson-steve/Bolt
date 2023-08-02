@@ -1,5 +1,5 @@
 use crate::environment::{self, Environment};
-use crate::expr::{Expr, LiteralValue};
+use crate::expr::LiteralValue;
 use crate::scanner::TokenType;
 use crate::stmt::Stmt;
 use std::cell::RefCell;

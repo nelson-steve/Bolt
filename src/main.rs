@@ -8,6 +8,7 @@ mod expr;
 mod parser;
 mod interpreter;
 mod stmt;
+mod tests;
 mod environment;
 use crate::scanner::*;
 use crate::parser::*;
@@ -28,7 +29,7 @@ fn run_file(path: &str) -> Result<(), String> {
     }
 }
 
-fn run(interpreter: &mut Interpreter, contents: &str) -> Result<(), String> {
+pub fn run(interpreter: &mut Interpreter, contents: &str) -> Result<(), String> {
     let mut scanner = Scanner::new(contents);
     let tokens = scanner.scan_tokens()?;
 
@@ -67,6 +68,8 @@ fn run_prompt() -> Result<(), String> {
 }
 
 fn main() {
+    // env::set_var("RUST_BACKTRACE", "1");
+
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 2 {
@@ -75,7 +78,7 @@ fn main() {
         match run_file(&args[1]) {
             Ok(_) => exit(0),
             Err(msg) => {
-                println!("ERROR:\n{}", msg);
+                println!("ERROR: {}", msg);
                 exit(1);
             }
         }
@@ -83,7 +86,7 @@ fn main() {
         match run_prompt() {
             Ok(_) => exit(0),
             Err(msg) => {
-                println!("ERROR:\n{}", msg);
+                println!("ERROR:{}", msg);
                 exit(1);
             }
         }

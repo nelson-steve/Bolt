@@ -23,7 +23,7 @@ impl Stmt {
         match self {
             Stmt::Expression { expression } => expression.to_string(),
             Stmt::Print { expression } => format!("(print {})", expression.to_string()),
-            Stmt::Var { name, initializer } => format!("(var {})", name.to_string()),
+            Stmt::Var { name, initializer: _ } => format!("(var {})", name.to_string()),
             Stmt::Block { statements } => {
                 format!(
                     "(block {})",
@@ -33,8 +33,8 @@ impl Stmt {
                         .collect::<String>()
                 )
             }
-            Stmt::IfStmt { predicate, then, els } => todo!(),
-            Stmt::WhileStmt { condition, body } => todo!(),
+            Stmt::IfStmt { predicate: _, then: _, els: _ } => todo!(),
+            Stmt::WhileStmt { condition: _, body: _ } => todo!(),
         }
     }
 }
