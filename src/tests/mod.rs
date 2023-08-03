@@ -2,7 +2,7 @@
 mod tests {
     use std::{
         env,
-        process::{Command, Output},
+        process::{Command, Output}, vec,
     };
 
     use crate::run_file;
@@ -21,7 +21,7 @@ mod tests {
 
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[0], "3");
-        assert_eq!(lines[1], "3");
+        assert_eq!(lines[1], "3");  
     }
 
     #[test]
@@ -64,5 +64,36 @@ mod tests {
         assert_eq!(lines[7], "1814400");
         assert_eq!(lines[8], "3628800");
         assert_eq!(lines[9], "3628800");
+    }
+
+    #[test]
+    fn interpret_for() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/forloop.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 22);
+        let mut fibo = vec![];
+        let mut a = 0;
+        let mut b = 1;
+        let mut temp;
+        for _i in 0..21 {
+            fibo.push(a);
+            temp = b;
+            b = a + b;
+            a = temp;
+        }
+
+        assert_eq!(lines.len(), fibo.len() + 1);
+        for i in 0..fibo.len() {
+            assert_eq!(lines[i], fibo[i].to_string());
+        }
     }
 }

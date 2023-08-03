@@ -4,7 +4,7 @@ use crate::{
         Token,
         TokenType::{self, *},
     },
-    stmt::{Stmt, self},
+    stmt::{self, Stmt},
 };
 
 use crate::expr::{Expr, Expr::*};
@@ -89,19 +89,88 @@ impl Parser {
             self.if_statement()
         } else if self.match_token(&TokenType::While) {
             self.while_statement()
-        }
-         else {
+        } else if self.match_token(&TokenType::For) {
+            self.for_statement()
+        } else {
             self.expression_statement()
         }
+    }
+
+    fn for_statement(&mut self) -> Result<Stmt, String> {
+        // for v
+        //          ( SMTH; SMTH; SMTH )
+        self.consume(TokenType::LeftParen, "Expected '(' after 'for'")?;
+
+        let initializer: Option<Stmt>;
+        if self.match_token(&TokenType::Semicolon) {
+            initializer = Option::None;
+        } else if self.match_token(&TokenType::Var) {
+            let var_decl = self.var_declaration()?;
+            initializer = Some(var_decl);
+        } else {
+            let expr = self.expression_statement()?;
+            initializer = Some(expr);
+        }
+
+        let condition;
+        if !self.check(TokenType::Semicolon) {
+            let expr = self.comparison()?;
+            condition = Some(expr)
+        } else {
+            condition = Option::None;
+        }
+        self.consume(TokenType::Semicolon, "Expected ';' after loop condition")?;
+
+        let increment;
+        if !self.check(TokenType::RightParen) {
+            let expr = self.expression()?;
+            increment = Some(expr)
+        } else {
+            increment = Option::None;
+        }
+        self.consume(TokenType::RightParen, "Expected ')' after for clause")?;
+
+        let mut body = self.statement()?;
+
+        if let Some(incr) = increment {
+            body = Stmt::Block {
+                statements: vec![
+                    Box::new(body),
+                    Box::new(Stmt::Expression { expression: incr }),
+                ],
+            }
+        }
+
+        let cond;
+        match condition {   
+            Option::None => {
+                cond = Expr::Literal {
+                    value: LiteralValue::True,
+                }
+            }
+            Some(c) => cond = c,
+        }
+        body = Stmt::WhileStmt {
+            condition: cond,
+            body: Box::new(body),
+        };
+
+        if let Some(init) = initializer {
+            body = Stmt::Block {
+                statements: vec![Box::new(init), Box::new(body)],
+            }
+        }
+
+        Ok(body)
     }
 
     fn while_statement(&mut self) -> Result<Stmt, String> {
         self.consume(TokenType::LeftParen, "Expected '(' after 'while'")?;
         let condition = self.expression()?;
         self.consume(TokenType::RightParen, "Exptected ')' after condition.")?;
-        let body = Box::new(self.statement()?);
+        let body = self.statement()?;
 
-        Ok(Stmt::WhileStmt { condition, body })
+        Ok(Stmt::WhileStmt { condition, body: Box::new(body) })
     }
 
     fn if_statement(&mut self) -> Result<Stmt, String> {
@@ -129,7 +198,7 @@ impl Parser {
 
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
             let decl = self.declaration()?;
-            statements.push(decl);
+            statements.push(Box::new(decl));
         }
 
         self.consume(TokenType::RightBrace, "Expected '}' after a block")?;
@@ -406,7 +475,7 @@ mod tests {
     #[test]
     fn test_addition() {
         let one = Token {
-            token_type: TokenType::Number, 
+            token_type: TokenType::Number,
             lexeme: "1".to_string(),
             literal: Some(FValue(1.0)),
             lineNumber: 0,

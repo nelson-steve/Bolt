@@ -3,6 +3,7 @@ use crate::expr::LiteralValue;
 use crate::scanner::TokenType;
 use crate::stmt::Stmt;
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::vec;
 
@@ -37,7 +38,7 @@ impl Interpreter {
 
                     let old_environment = self.environment.clone();
                     self.environment = Rc::new(RefCell::new(new_environment));
-                    let block_result = self.interpret((*statements).iter().map(|b| b).collect());
+                    let block_result = self.interpret((*statements).iter() .map(|b| b.deref()).collect());
                     self.environment = old_environment;
 
                     block_result?;
@@ -65,6 +66,7 @@ impl Interpreter {
                         flag = condition.evaluate(self.environment.clone())?;
                     }
                 }
+                Stmt::ForStmt { var_decl, expr_stmt, condition, increment, body } => todo!(),
             };
         }
 

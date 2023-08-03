@@ -5,14 +5,23 @@ pub enum Stmt {
     Expression { expression: Expr },
     Print { expression: Expr },
     Var { name: Token, initializer: Expr },
-    Block { statements: Vec<Stmt> },
+    Block { statements: Vec<Box<Stmt>> },
     IfStmt {
         predicate: Expr,
         then: Box<Stmt>,
         els: Option<Box<Stmt>>,
     },
-    WhileStmt {
+        WhileStmt {
         condition: Expr,
+        body: Box<Stmt>,
+    },
+    ForStmt {
+        var_decl: Option<Box<Stmt>>,
+        expr_stmt: Option<Box<Stmt>>,
+
+        condition: Option<Expr>,
+        increment: Option<Expr>,
+
         body: Box<Stmt>,
     }
 }
@@ -35,6 +44,7 @@ impl Stmt {
             }
             Stmt::IfStmt { predicate: _, then: _, els: _ } => todo!(),
             Stmt::WhileStmt { condition: _, body: _ } => todo!(),
+            Stmt::ForStmt { var_decl, expr_stmt, condition, increment, body } => todo!(),
         }
     }
 }
