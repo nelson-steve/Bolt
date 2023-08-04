@@ -142,7 +142,7 @@ impl Parser {
         }
 
         let cond;
-        match condition {   
+        match condition {
             Option::None => {
                 cond = Expr::Literal {
                     value: LiteralValue::True,
@@ -170,7 +170,10 @@ impl Parser {
         self.consume(TokenType::RightParen, "Exptected ')' after condition.")?;
         let body = self.statement()?;
 
-        Ok(Stmt::WhileStmt { condition, body: Box::new(body) })
+        Ok(Stmt::WhileStmt {
+            condition,
+            body: Box::new(body),
+        })
     }
 
     fn if_statement(&mut self) -> Result<Stmt, String> {
@@ -379,8 +382,49 @@ impl Parser {
                 right: Box::from(rhs),
             })
         } else {
-            self.primary()
+            self.call()
         }
+    }
+
+    fn call(&mut self) -> Result<Expr, String> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.match_token(&TokenType::LeftParen) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr, String> {
+        let mut arguments = vec![];
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                let arg = self.expression()?;
+                arguments.push(arg);
+                if arguments.len() >= 255 {
+                    let location = self.peek().lineNumber;
+                    return Err(format!(
+                        "Line {location}: Cant have more than 255 arguments"
+                    ));
+                }
+
+                if !self.match_token(&TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        let paren = self.consume(TokenType::RightParen, "Expected ')' after arguments.")?;
+
+        Ok(Call {
+            callee: Box::new(callee),
+            paren,
+            arguments,
+        })
     }
 
     fn primary(&mut self) -> Result<Expr, String> {

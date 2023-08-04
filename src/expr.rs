@@ -1,22 +1,40 @@
-use std::{fmt::format, cell::RefCell, rc::Rc, env};
+use std::{fmt::{format, write}, cell::RefCell, rc::Rc, env};
 
 use crate::{
     environment::{self, Environment},
     scanner::{self, Token, TokenType},
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub enum LiteralValue {
-    Number(f32),
+    Number(f64),
     StringValue(String),
     True,
     False,
     Nil,
+    Callable { name: String, arity: usize, fun: Rc<dyn Fn(&Vec<LiteralValue>) -> LiteralValue>,
+    },
 }
 
-fn unwrap_as_f32(literal: Option<scanner::LiteralValue>) -> f32 {
+impl std::fmt::Debug for LiteralValue {
+    fn fmt(&self, f:&mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+} 
+
+impl PartialEq for LiteralValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (LiteralValue::Number(x), LiteralValue::Number(y)) => x == y,
+            (LiteralValue::Callable{name, arity, fun: _}, LiteralValue::Callable { name: name2, arity: arity2, fun: _ }) => name == name2 && arity == arity2,
+            _ => todo!()
+        }
+    }
+}
+
+fn unwrap_as_f64(literal: Option<scanner::LiteralValue>) -> f64 {
     match literal {
-        Some(scanner::LiteralValue::FValue(x)) => x as f32,
+        Some(scanner::LiteralValue::FValue(x)) => x as f64,
         _ => panic!("Could not unwrap as f32"),
     }
 }
@@ -36,6 +54,7 @@ impl LiteralValue {
             LiteralValue::True => "true".to_string(),
             LiteralValue::False => "false".to_string(),
             LiteralValue::Nil => "nil".to_string(),
+            LiteralValue::Callable { name, arity, fun: _ } => format!("{name}|{arity}"),
         }
     }
 
@@ -46,12 +65,13 @@ impl LiteralValue {
             LiteralValue::True => "Boolean",
             LiteralValue::False => "Boolean",
             LiteralValue::Nil => "Nil",
+            LiteralValue::Callable { name: _, arity: _, fun } => "Callable",
         }
     }
 
     pub fn from_token(token: &Token) -> Self {
         match token.token_type {
-            TokenType::Number => Self::Number(unwrap_as_f32(token.literal.clone())),
+            TokenType::Number => Self::Number(unwrap_as_f64(token.literal.clone())),
             TokenType::StringLit => Self::StringValue(unwrap_as_string(token.literal.clone())),
 
             TokenType::False => Self::False,
@@ -88,6 +108,7 @@ impl LiteralValue {
             Self::True => Self::False,
             Self::False => Self::True,
             Self::Nil => Self::True,
+            Self::Callable { name: _, arity: _, fun } => panic!("Can not use callable as a falsy value"),
         }
     }
 
@@ -110,12 +131,13 @@ impl LiteralValue {
             Self::True => Self::True,
             Self::False => Self::False,
             Self::Nil => Self::False,
+            Self::Callable { name: _, arity: _, fun } => panic!("Can not use callable as a truthy"),
         }
     }
 }
 
-// #[derive(Debug)]
 // #[derive(Clone)]
+// #[derive(Debug)]
 pub enum Expr {
     Assign {
         name: Token,
@@ -125,6 +147,11 @@ pub enum Expr {
         left: Box<Expr>,
         operator: Token,
         right: Box<Expr>,
+    },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        arguments: Vec<Expr>,
     },
     Grouping {
         expression: Box<Expr>,
@@ -146,6 +173,12 @@ pub enum Expr {
     },
 }
 
+impl std::fmt::Debug for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
 impl Expr {
     #[allow(dead_code)]
     pub fn to_string(&self) -> String {
@@ -161,6 +194,7 @@ impl Expr {
                 left.to_string(),
                 right.to_string()
             ),
+            Expr::Call { callee, paren, arguments } => format!("({} {:?})", (*callee).to_string(), arguments),
             Expr::Grouping { expression } => format!("(group {})", (*expression).to_string()),
             Expr::Literal { value } => format!("{}", value.to_string()),
             Expr::Unary { operator, right } => {
@@ -197,6 +231,24 @@ impl Expr {
             Expr::Variable { name } => match env.borrow().get(&name.lexeme) {
                 Some(value) => Ok(value.clone()),
                 None => Err(format!("Variable '{}' has not been declared - declare", name.lexeme)),
+            },
+            Expr::Call { callee, paren: _, arguments } => {
+                let callable = callee.evaluate(env.clone())?;
+                match callable {
+                    LiteralValue::Callable { name, arity, fun } => {
+                        if arguments.len() != arity {
+                            return Err(format!("Callable {} expected {} arguments but got {}", name, arity, arguments.len()));
+                        }
+                        let mut arg_vals = vec![];
+                        for arg in arguments {
+                            let val = arg.evaluate(env.clone()).unwrap();
+                            arg_vals.push(val);
+                        }
+
+                        Ok(fun(&arg_vals)) 
+                    }
+                    other => Err(format!("{} is not callable", other.to_type())),
+                }
             },
             Expr::Literal { value } => Ok((*value).clone()),
             Expr::Logical {
