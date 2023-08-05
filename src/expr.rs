@@ -1,4 +1,9 @@
-use std::{fmt::{format, write}, cell::RefCell, rc::Rc, env};
+use std::{
+    cell::RefCell,
+    env,
+    fmt::{format, write},
+    rc::Rc,
+};
 
 use crate::{
     environment::{self, Environment},
@@ -12,22 +17,36 @@ pub enum LiteralValue {
     True,
     False,
     Nil,
-    Callable { name: String, arity: usize, fun: Rc<dyn Fn(&Vec<LiteralValue>) -> LiteralValue>,
+    Callable {
+        name: String,
+        arity: usize,
+        fun: Rc<dyn Fn(Rc<RefCell<Environment>>, &Vec<LiteralValue>) -> LiteralValue>,
     },
 }
 
 impl std::fmt::Debug for LiteralValue {
-    fn fmt(&self, f:&mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
     }
-} 
+}
 
 impl PartialEq for LiteralValue {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (LiteralValue::Number(x), LiteralValue::Number(y)) => x == y,
-            (LiteralValue::Callable{name, arity, fun: _}, LiteralValue::Callable { name: name2, arity: arity2, fun: _ }) => name == name2 && arity == arity2,
-            _ => todo!()
+            (
+                LiteralValue::Callable {
+                    name,
+                    arity,
+                    fun: _,
+                },
+                LiteralValue::Callable {
+                    name: name2,
+                    arity: arity2,
+                    fun: _,
+                },
+            ) => name == name2 && arity == arity2,
+            _ => todo!(),
         }
     }
 }
@@ -54,7 +73,11 @@ impl LiteralValue {
             LiteralValue::True => "true".to_string(),
             LiteralValue::False => "false".to_string(),
             LiteralValue::Nil => "nil".to_string(),
-            LiteralValue::Callable { name, arity, fun: _ } => format!("{name}|{arity}"),
+            LiteralValue::Callable {
+                name,
+                arity,
+                fun: _,
+            } => format!("{name}|{arity}"),
         }
     }
 
@@ -65,7 +88,11 @@ impl LiteralValue {
             LiteralValue::True => "Boolean",
             LiteralValue::False => "Boolean",
             LiteralValue::Nil => "Nil",
-            LiteralValue::Callable { name: _, arity: _, fun } => "Callable",
+            LiteralValue::Callable {
+                name: _,
+                arity: _,
+                fun,
+            } => "Callable",
         }
     }
 
@@ -108,7 +135,11 @@ impl LiteralValue {
             Self::True => Self::False,
             Self::False => Self::True,
             Self::Nil => Self::True,
-            Self::Callable { name: _, arity: _, fun } => panic!("Can not use callable as a falsy value"),
+            Self::Callable {
+                name: _,
+                arity: _,
+                fun,
+            } => panic!("Can not use callable as a falsy value"),
         }
     }
 
@@ -131,13 +162,16 @@ impl LiteralValue {
             Self::True => Self::True,
             Self::False => Self::False,
             Self::Nil => Self::False,
-            Self::Callable { name: _, arity: _, fun } => panic!("Can not use callable as a truthy"),
+            Self::Callable {
+                name: _,
+                arity: _,
+                fun,
+            } => panic!("Can not use callable as a truthy"),
         }
     }
 }
 
-// #[derive(Clone)]
-// #[derive(Debug)]
+#[derive(Clone)]
 pub enum Expr {
     Assign {
         name: Token,
@@ -194,7 +228,11 @@ impl Expr {
                 left.to_string(),
                 right.to_string()
             ),
-            Expr::Call { callee, paren, arguments } => format!("({} {:?})", (*callee).to_string(), arguments),
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => format!("({} {:?})", (*callee).to_string(), arguments),
             Expr::Grouping { expression } => format!("(group {})", (*expression).to_string()),
             Expr::Literal { value } => format!("{}", value.to_string()),
             Expr::Unary { operator, right } => {
@@ -225,19 +263,38 @@ impl Expr {
                 if assign_success {
                     Ok(new_value)
                 } else {
-                    Err(format!("Variable {} has not been declared - assign", name.lexeme))
+                    Err(format!(
+                        "Variable {} has not been declared - assign",
+                        name.lexeme
+                    ))
                 }
             }
             Expr::Variable { name } => match env.borrow().get(&name.lexeme) {
                 Some(value) => Ok(value.clone()),
-                None => Err(format!("Variable '{}' has not been declared - declare", name.lexeme)),
+                None => Err(format!(
+                    "Variable '{}' has not been declared - declare",
+                    name.lexeme
+                )),
             },
-            Expr::Call { callee, paren: _, arguments } => {
-                let callable = callee.evaluate(env.clone())?;
+            Expr::Call {
+                callee,
+                paren: _,
+                arguments,
+            } => {
+                let callable = (*callee).evaluate(env.clone())?;
                 match callable {
-                    LiteralValue::Callable { name, arity, fun } => {
+                    LiteralValue::Callable {
+                        name,
+                        arity,
+                        fun,
+                    } => {
                         if arguments.len() != arity {
-                            return Err(format!("Callable {} expected {} arguments but got {}", name, arity, arguments.len()));
+                            return Err(format!(
+                                "Callable {} expected {} arguments but got {}",
+                                name,
+                                arity,
+                                arguments.len()
+                            ));
                         }
                         let mut arg_vals = vec![];
                         for arg in arguments {
@@ -245,38 +302,36 @@ impl Expr {
                             arg_vals.push(val);
                         }
 
-                        Ok(fun(&arg_vals)) 
+                        Ok(fun(env.clone(), &arg_vals))
                     }
                     other => Err(format!("{} is not callable", other.to_type())),
                 }
-            },
+            }
             Expr::Literal { value } => Ok((*value).clone()),
             Expr::Logical {
                 left,
                 operator,
                 right,
-            } => {
-                match operator.token_type {
-                    TokenType::Or => {
-                        let lhs_value = left.evaluate(env.clone())?;
-                        let lhs_true = lhs_value.is_truthy();
-                        if lhs_true == LiteralValue::True {
-                            Ok(lhs_value)
-                        } else {
-                            right.evaluate(env.clone())
-                        }
+            } => match operator.token_type {
+                TokenType::Or => {
+                    let lhs_value = left.evaluate(env.clone())?;
+                    let lhs_true = lhs_value.is_truthy();
+                    if lhs_true == LiteralValue::True {
+                        Ok(lhs_value)
+                    } else {
+                        right.evaluate(env.clone())
                     }
-                    TokenType::And => {
-                        let lhs_value = left.evaluate(env.clone())?;
-                        let lhs_true = lhs_value.is_truthy();
-                        if lhs_true == LiteralValue::False {
-                            Ok(lhs_true)
-                        } else {
-                            right.evaluate(env)
-                        }
-                    }
-                    ttype => Err(format!("Invalid token in logical expression: {}", ttype))
                 }
+                TokenType::And => {
+                    let lhs_value = left.evaluate(env.clone())?;
+                    let lhs_true = lhs_value.is_truthy();
+                    if lhs_true == LiteralValue::False {
+                        Ok(lhs_true)
+                    } else {
+                        right.evaluate(env)
+                    }
+                }
+                ttype => Err(format!("Invalid token in logical expression: {}", ttype)),
             },
             Expr::Grouping { expression } => expression.evaluate(env),
             Expr::Unary { operator, right } => {

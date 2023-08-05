@@ -9,6 +9,11 @@ use crate::{
 
 use crate::expr::{Expr, Expr::*};
 
+#[derive(Debug)]
+enum FunctionKind {
+    Function,
+}
+
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -45,16 +50,47 @@ impl Parser {
 
     fn declaration(&mut self) -> Result<Stmt, String> {
         if self.match_token(&TokenType::Var) {
-            match self.var_declaration() {
-                Ok(stmt) => Ok(stmt),
-                Err(msg) => {
-                    // self.synchronization();
-                    return Err(msg);
-                }
-            }
-        } else {
+            self.var_declaration()
+        } else if self.match_token(&TokenType::Fun){
+            self.function(FunctionKind::Function)
+        } 
+        else {
             self.statement()
         }
+    }
+
+    fn function(&mut self, kind: FunctionKind) -> Result<Stmt, String> {
+        let name = self.consume(TokenType::Identifier, &format!("Expected {kind:?} name"))?;
+
+        self.consume(TokenType::LeftParen, &format!("Expected '(' after {kind:?} name"))?;
+
+        let mut parameters = vec![];
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    let location = self.peek().lineNumber;
+                    return Err(format!(
+                        "Line {location}: Cant have more than 255 arguments"
+                    ));
+                }
+
+                let param = self.consume(TokenType::Identifier, "Expected parameter name")?;
+                parameters.push(param);
+
+                if !self.match_token(&TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenType::RightParen, "Expected ')' after paramters.")?;
+
+        self.consume(TokenType::LeftBrace, "Expected '{{' before {kind:?} body.")?;
+        let body = match self.block_statement()? {
+            Stmt::Block { statements } => statements,
+            _ => panic!("Block statement parsed something that was not a block"),
+        };
+
+        return Ok(Stmt::Function { name: name, params: parameters, body, });
     }
 
     fn var_declaration(&mut self) -> Result<Stmt, String> {
