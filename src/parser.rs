@@ -51,10 +51,9 @@ impl Parser {
     fn declaration(&mut self) -> Result<Stmt, String> {
         if self.match_token(&TokenType::Var) {
             self.var_declaration()
-        } else if self.match_token(&TokenType::Fun){
+        } else if self.match_token(&TokenType::Fun) {
             self.function(FunctionKind::Function)
-        } 
-        else {
+        } else {
             self.statement()
         }
     }
@@ -62,7 +61,10 @@ impl Parser {
     fn function(&mut self, kind: FunctionKind) -> Result<Stmt, String> {
         let name = self.consume(TokenType::Identifier, &format!("Expected {kind:?} name"))?;
 
-        self.consume(TokenType::LeftParen, &format!("Expected '(' after {kind:?} name"))?;
+        self.consume(
+            TokenType::LeftParen,
+            &format!("Expected '(' after {kind:?} name"),
+        )?;
 
         let mut parameters = vec![];
         if !self.check(TokenType::RightParen) {
@@ -90,7 +92,11 @@ impl Parser {
             _ => panic!("Block statement parsed something that was not a block"),
         };
 
-        return Ok(Stmt::Function { name: name, params: parameters, body, });
+        return Ok(Stmt::Function {
+            name,
+            params: parameters,
+            body,
+        });
     }
 
     fn var_declaration(&mut self) -> Result<Stmt, String> {
@@ -127,9 +133,27 @@ impl Parser {
             self.while_statement()
         } else if self.match_token(&TokenType::For) {
             self.for_statement()
+        } else if self.match_token(&TokenType::Return) {
+            self.return_statement()
         } else {
             self.expression_statement()
         }
+    }
+
+    fn return_statement(&mut self) -> Result<Stmt, String> {
+        let keyword = self.previous();
+        let value;
+        if !self.check(TokenType::Semicolon) {
+            value = Some(self.expression()?);
+        } else {
+            value = Option::None;
+        }
+        self.consume(TokenType::Semicolon, "Expected ';' after return value")?;
+
+        Ok(Stmt::ReturnStmt {
+            keyword,
+            value: value,
+        })
     }
 
     fn for_statement(&mut self) -> Result<Stmt, String> {
@@ -260,11 +284,53 @@ impl Parser {
         self.assignment()
     }
 
+    fn function_expression(&mut self) -> Result<Expr, String> {
+        let paren = self.consume(
+            TokenType::LeftParen,
+            "Expected '(' after anonymous function",
+        )?;
+
+        let mut parameters = vec![];
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    let location = self.peek().lineNumber;
+                    return Err(format!(
+                        "Line {location}: Cant have more than 255 arguments"
+                    ));
+                }
+
+                let param = self.consume(TokenType::Identifier, "Expected parameter name")?;
+                parameters.push(param);
+
+                if !self.match_token(&TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenType::RightParen, "Expected ')' after paramters.")?;
+
+        self.consume(
+            TokenType::LeftBrace,
+            "Expected '{' after anonymous function declaration.",
+        )?;
+
+        let body = match self.block_statement()? {
+            Stmt::Block { statements } => statements,
+            _ => panic!("Block statement parsed something that was not a block"),
+        };
+        Ok(Expr::AnonFunction {
+            paren,
+            arguments: parameters,
+            body,
+        })
+    }
+
     fn assignment(&mut self) -> Result<Expr, String> {
         let expr = self.or()?;
 
         if self.match_token(&TokenType::Equal) {
-            let value = self.assignment()?;
+            let value = self.expression()?;
 
             match expr {
                 Variable { name } => Ok(Assign {
@@ -492,6 +558,10 @@ impl Parser {
                     name: self.previous(),
                 };
             }
+            TokenType::Fun => {
+                self.advance();
+                result = self.function_expression()?;
+            },
             _ => return Err("Expected expression".to_string()),
         }
 

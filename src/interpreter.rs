@@ -9,11 +9,11 @@ use std::time::SystemTime;
 use std::vec;
 
 pub struct Interpreter {
-    // globals: Environment,
-    environment: Rc<RefCell<Environment>>,
+    pub specials: Rc<RefCell<Environment>>,
+    pub environment: Rc<RefCell<Environment>>,
 }
 
-fn clock_impl(_env: Rc<RefCell<Environment>>, _args: &Vec<LiteralValue>) -> LiteralValue {
+fn clock_impl(_args: &Vec<LiteralValue>) -> LiteralValue {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
         .expect("Could not get system time")
@@ -24,8 +24,8 @@ fn clock_impl(_env: Rc<RefCell<Environment>>, _args: &Vec<LiteralValue>) -> Lite
 
 impl Interpreter {
     pub fn new() -> Self {
-        let mut globals = Environment::new();
-        globals.define(
+        let mut env = Environment::new();
+        env.define(
             "clock".to_string(),
             LiteralValue::Callable {
                 name: "clock".to_string(),
@@ -34,7 +34,8 @@ impl Interpreter {
             },
         );
         Self {
-            environment: Rc::new(RefCell::new(globals)),
+            specials: Rc::new(RefCell::new(Environment::new())),
+            environment: Rc::new(RefCell::new(env)),
         }
     }
 
@@ -42,7 +43,19 @@ impl Interpreter {
         let environment = Rc::new(RefCell::new(Environment::new()));
         environment.borrow_mut().enclosing = Some(parent);
 
-        Self { environment }
+        Self {
+            specials: Rc::new(RefCell::new(Environment::new())),
+            environment,
+        }
+    }
+
+    pub fn for_anon(parent: Rc<RefCell<Environment>>) -> Self {
+        let mut env = Environment::new();
+        env.enclosing = Some(parent);
+        Self {
+            specials: Rc::new(RefCell::new(Environment::new())),
+            environment: Rc::new(RefCell::new(env)),
+        }
     }
 
     pub fn interpret(&mut self, stmts: Vec<&Stmt>) -> Result<(), String> {
@@ -68,7 +81,7 @@ impl Interpreter {
                     let old_environment = self.environment.clone();
                     self.environment = Rc::new(RefCell::new(new_environment));
                     let block_result =
-                        self.interpret((*statements).iter().map(|b| b.deref()).collect());
+                        self.interpret((*statements).iter().map(|b| b.as_ref()).collect());
                     self.environment = old_environment;
 
                     block_result?;
@@ -102,8 +115,9 @@ impl Interpreter {
                     let params: Vec<Token> = params.iter().map(|t| (*t).clone()).collect();
                     let body: Vec<Box<Stmt>> = body.iter().map(|b| (*b).clone()).collect();
                     let name_clone = name.lexeme.clone();
-                    let fun = move |parent_env, args: &Vec<LiteralValue>| {
-                        let mut clos_int = Interpreter::for_closure(parent_env);
+                    let parent_env = self.environment.clone();
+                    let fun_impl = move |args: &Vec<LiteralValue>| {
+                        let mut clos_int = Interpreter::for_closure(parent_env.clone());
 
                         // let n = params.clone();
                         for (i, arg) in args.iter().enumerate() {
@@ -113,29 +127,63 @@ impl Interpreter {
                                 .borrow_mut()
                                 .define(params[i].lexeme.clone(), (*arg).clone());
                         }
-                        for i in 0..(body.len() - 1) {
+                        for i in 0..(body.len()) {
                             clos_int
                                 .interpret(vec![body[i].as_ref()])
-                                .expect(&format!("Evaluating a failed inside "));
-                        }
-                        let value;
-                        match body[body.len() - 1].as_ref() {
-                            Stmt::Expression { expression } => {
-                                value = expression.evaluate(clos_int.environment.clone()).unwrap()
-                            }
-                            _ => todo!(),
-                        }
+                                .expect(&format!("Evaluating a failed inside {}", name_clone));
 
-                        value
+                            if let Some(value) = clos_int.specials.borrow_mut().get("return") {
+                                return value;
+                            }
+                        }
+                        LiteralValue::Nil
+
+                        //     if let Stmt::ReturnStmt {
+                        //         keyword: _,
+                        //         value: _,
+                        //     } = *body[i]
+                        //     {
+                        //         let value = clos_int
+                        //             .environment
+                        //             .borrow_mut()
+                        //             .get("return")
+                        //             .expect("return value was not defined in the environment even though return statememnt was intereted");
+                        //         return value;
+                        //     }
+                        // }
+
+                        // let value;
+                        // match body[body.len() - 1].as_ref() {
+                        //     Stmt::Expression { expression } => {
+                        //         value = expression.evaluate(clos_int.environment.clone()).unwrap()
+                        //     }
+                        //     // _ => todo!("Didn't get and expression"),
+                        //     _ => todo!("Didn't get and expression"),
+                        // }
+
+                        // value
                     };
 
                     let callable = LiteralValue::Callable {
                         name: name.lexeme.clone(),
                         arity,
-                        fun: Rc::new(fun),
+                        fun: Rc::new(fun_impl),
                     };
 
-                    self.environment.borrow_mut().define(name.lexeme.clone(), callable);
+                    self.environment
+                        .borrow_mut()
+                        .define(name.lexeme.clone(), callable);
+                }
+                Stmt::ReturnStmt { keyword, value } => {
+                    let evaL_val;
+                    if let Some(value) = value {
+                        evaL_val = value.evaluate(self.environment.clone())?;
+                    } else {
+                        evaL_val = LiteralValue::Nil;
+                    }
+                    self.specials
+                        .borrow_mut()
+                        .define_top_level("return".to_string(), evaL_val);
                 }
             };
         }

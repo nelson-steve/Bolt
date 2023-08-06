@@ -3,11 +3,14 @@ use std::{
     env,
     fmt::{format, write},
     rc::Rc,
+    vec,
 };
 
 use crate::{
     environment::{self, Environment},
+    interpreter::Interpreter,
     scanner::{self, Token, TokenType},
+    stmt::Stmt,
 };
 
 #[derive(Clone)]
@@ -20,7 +23,7 @@ pub enum LiteralValue {
     Callable {
         name: String,
         arity: usize,
-        fun: Rc<dyn Fn(Rc<RefCell<Environment>>, &Vec<LiteralValue>) -> LiteralValue>,
+        fun: Rc<dyn Fn(&Vec<LiteralValue>) -> LiteralValue>,
     },
 }
 
@@ -46,7 +49,11 @@ impl PartialEq for LiteralValue {
                     fun: _,
                 },
             ) => name == name2 && arity == arity2,
-            _ => todo!(),
+            (LiteralValue::StringValue(x), LiteralValue::StringValue(y)) => x == y,
+            (LiteralValue::True, LiteralValue::True) => true,
+            (LiteralValue::False, LiteralValue::False) => true,
+            (LiteralValue::Nil, LiteralValue::Nil) => true,
+            _ => false,
         }
     }
 }
@@ -173,6 +180,11 @@ impl LiteralValue {
 
 #[derive(Clone)]
 pub enum Expr {
+    AnonFunction {
+        paren: Token,
+        arguments: Vec<Token>,
+        body: Vec<Box<Stmt>>,
+    },
     Assign {
         name: Token,
         value: Box<Expr>,
@@ -217,6 +229,11 @@ impl Expr {
     #[allow(dead_code)]
     pub fn to_string(&self) -> String {
         match self {
+            Expr::AnonFunction {
+                paren: _,
+                arguments,
+                body: _,
+            } => format!("anon{}", arguments.len()),
             Expr::Assign { name, value } => format!("{name:?} = {}", value.to_string()),
             Expr::Binary {
                 left,
@@ -257,6 +274,48 @@ impl Expr {
     pub fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<LiteralValue, String> {
         let env = environment;
         match self {
+            Expr::AnonFunction {
+                paren,
+                arguments,
+                body,
+            } => {
+                let arity = arguments.clone();
+                let env = env.clone();
+                let arguments: Vec<Token> = arguments.iter().map(|t| (*t).clone()).collect();
+                let body: Vec<Box<Stmt>> = body.iter().map(|b| (*b).clone()).collect();
+                let paren = paren.clone();
+                let len = arguments.len().clone();
+                
+                let fun_impl = move |args: &Vec<LiteralValue>| {
+                    let mut anon_int = Interpreter::for_anon(env.clone());
+                    for (i, arg) in args.iter().enumerate() {
+                        anon_int
+                            .environment
+                            .borrow_mut()
+                            .define(arguments[i].lexeme.clone(), (*arg).clone());
+                    }
+
+                    for i in 0..(body.len()) {
+                        anon_int.interpret(vec![&body[i]]).expect(&format!(
+                            "Evaluating failed inside anon function at line {}",
+                            paren.lineNumber
+                        ));
+
+                        if let Some(value) = anon_int.specials.borrow_mut().get("return") {
+                            return value;
+                        }
+                    }
+
+                    LiteralValue::Nil
+                };
+
+                // let anon_env = Interpreter::for_anon(environment.clone());
+                Ok(LiteralValue::Callable {
+                    name: "anon_funtion".to_string(),
+                    arity: len,
+                    fun: Rc::new(fun_impl),
+                })
+            }
             Expr::Assign { name, value } => {
                 let new_value = (*value).evaluate(env.clone())?;
                 let assign_success = env.borrow_mut().assign(&name.lexeme, new_value.clone());
@@ -283,11 +342,7 @@ impl Expr {
             } => {
                 let callable = (*callee).evaluate(env.clone())?;
                 match callable {
-                    LiteralValue::Callable {
-                        name,
-                        arity,
-                        fun,
-                    } => {
+                    LiteralValue::Callable { name, arity, fun } => {
                         if arguments.len() != arity {
                             return Err(format!(
                                 "Callable {} expected {} arguments but got {}",
@@ -302,7 +357,7 @@ impl Expr {
                             arg_vals.push(val);
                         }
 
-                        Ok(fun(env.clone(), &arg_vals))
+                        Ok(fun(&arg_vals))
                     }
                     other => Err(format!("{} is not callable", other.to_type())),
                 }

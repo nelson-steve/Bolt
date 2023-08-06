@@ -96,4 +96,170 @@ mod tests {
             assert_eq!(lines[i], fibo[i].to_string());
         }
     }
+
+    #[test]
+    fn interpret_fun() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/fundef.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 4, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "3");
+    }
+
+    #[test]
+    fn interpret_fun_local() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/fundef_local.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 2, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "3");
+    }
+
+    #[test]
+    fn interpret_fun_return() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/funreturn.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 2, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "5");
+    }
+
+    #[test]
+    fn interpret_fun_noreturn() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/funnoreturn.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 4, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "nil");
+    }
+
+    #[test]
+    fn interpret_fun_condreturn() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/funcondreturn.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 5, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "1");
+        assert_eq!(lines[3], "0");
+    }
+
+    #[test]
+    fn interpret_fun_verynested() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/funverynest.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 3, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "1");
+    }
+
+    #[test]
+    fn interpret_fun_closure() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/funclosure.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 5, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "1");
+        assert_eq!(lines[3], "2");
+    }
+
+    #[test]
+    fn interpret_fun_anon() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/funanon.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 4, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "3");
+    }
+
+    #[test]
+    fn interpret_fun_anon2() {
+        let output = Command::new("cargo")
+        .arg("run")
+        .arg("./src/tests/cases/funanon2.bolt")
+        .output()
+        .unwrap();
+    // println!("in for statement");
+        let lines = std::str::from_utf8(output.stdout.as_slice())
+            .unwrap()
+            .split("\n")
+            .collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 2, "Output: '{}'", lines.join("\n"));
+        assert_eq!(lines[0], "1");
+    }
 }

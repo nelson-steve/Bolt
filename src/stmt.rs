@@ -20,7 +20,11 @@ pub enum Stmt {
         name: Token,
         params: Vec<Token>,
         body: Vec<Box<Stmt>>,
-    }
+    },
+    ReturnStmt {
+        keyword: Token,
+        value: Option<Expr>,
+    },
     // ForStmt {
     //     var_decl: Option<Box<Stmt>>,
     //     expr_stmt: Option<Box<Stmt>>,
@@ -51,6 +55,7 @@ impl Stmt {
             Stmt::IfStmt { predicate: _, then: _, els: _ } => todo!(),
             Stmt::WhileStmt { condition: _, body: _ } => todo!(),
             Stmt::Function { name, params, body } => todo!(),
+            Stmt::ReturnStmt { keyword, value } => todo!(),
             // Stmt::ForStmt { var_decl, expr_stmt, condition, increment, body } => todo!(),
         }
     }
