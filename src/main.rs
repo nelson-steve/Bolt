@@ -8,6 +8,7 @@ mod expr;
 mod parser;
 mod interpreter;
 mod stmt;
+mod resolver;
 mod tests;
 mod environment;
 use crate::scanner::*;

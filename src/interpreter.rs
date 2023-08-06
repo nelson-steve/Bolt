@@ -1,5 +1,5 @@
 use crate::environment::{self, Environment};
-use crate::expr::LiteralValue;
+use crate::expr::{LiteralValue, Expr};
 use crate::scanner::{Token, TokenType};
 use crate::stmt::Stmt;
 use std::cell::{Ref, RefCell};
@@ -189,5 +189,9 @@ impl Interpreter {
         }
 
         Ok(())
+    }
+
+    pub fn resolve(&mut self, expr: &Expr, _steps: usize) -> Result<(), String> {
+        todo!()
     }
 }
